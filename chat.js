@@ -1,16 +1,14 @@
-// Astolfo in-site chat client — visual-novel dialogue box.
-// Talks to the local Astolfo proxy (see server/run_local.sh). No API key here, ever.
-// Plain script. Exposes window.Chat { init, send }.
+// Astolfo in-site chat client — rebuild.
+// Talks to the Render proxy (twinkywinky-chat.onrender.com). No API key here, ever.
+// Plain script. Exposes window.Chat { init, send, onOpen }.
 (function () {
   'use strict';
 
-  // The only line to change when the proxy moves (e.g. Render URL). No trailing slash.
+  // The only line to change when the proxy moves. No trailing slash.
   var CHAT_API_BASE_URL = 'https://twinkywinky-chat.onrender.com';
   var CHAT_COINS_PER_DAY = 10;
 
-  var logEl = null, inputEl = null, sendBtn = null;
-  var trackEl = null, thumbEl = null;
-  var audioCtx = null;
+  var logEl = null, audioCtx = null, opened = false;
 
   // Local fallback lines (used only if the proxy itself is unreachable;
   // the server also has its own fallback pool for Gemini failures).
@@ -20,9 +18,7 @@
     'هی هی! یه لحظه هنگ کردم، ولی الان سر حالم! دوباره بگو!',
     'اوه اوه! فکرم یه لحظه رفت پیاده‌روی! برگشت، بگو چی گفتی؟',
     'هی! یه ثانیه مغزم رفت دنبال یه پروانه! برگشتم، دوباره بگو!',
-    'اوه! مغزم یه لحظه رفت سراغ یه بستنی! برگشتم، بگو چی می‌خواستی؟',
-    'وای! یه لحظه ذهنم رفت تو ابرا! پیداش کردم، بگو ببینم!',
-    'هوم! مغزم یه چرت کوچولو زد! بیدار شدم، دوباره بگو چی گفتی؟'
+    'وای! یه لحظه ذهنم رفت تو ابرا! پیداش کردم، بگو ببینم!'
   ];
 
   function todayStr() {
@@ -30,64 +26,14 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  // Custom pixel scrollbar for the log (the native one never paints in
-  // headless Chromium — overlay scrollbars hide in static screenshots).
-  // A white track + solid black thumb, always visible while the log
-  // overflows; the thumb drags and the track click-jumps like a real one.
-  function updateChatScrollbar() {
-    if (!logEl) return;
-    if (!trackEl) trackEl = document.getElementById('chat-scrollbar');
-    if (!thumbEl) thumbEl = document.getElementById('chat-scrollbar-thumb');
-    if (!trackEl || !thumbEl) return;
-    var overflows = logEl.scrollHeight > logEl.clientHeight + 1;
-    trackEl.classList.toggle('show', overflows);
-    if (!overflows) return;
-    var trackH = trackEl.clientHeight;
-    var thumbH = Math.max(22, Math.round(trackH * logEl.clientHeight / logEl.scrollHeight));
-    var maxTop = Math.max(1, trackH - thumbH);
-    var range = Math.max(1, logEl.scrollHeight - logEl.clientHeight);
-    thumbEl.style.height = thumbH + 'px';
-    thumbEl.style.top = Math.round(logEl.scrollTop / range * maxTop) + 'px';
-  }
-
-  function bindScrollbar() {
-    if (!logEl) return;
-    trackEl = document.getElementById('chat-scrollbar');
-    thumbEl = document.getElementById('chat-scrollbar-thumb');
-    if (!trackEl || !thumbEl) return;
-    logEl.addEventListener('scroll', updateChatScrollbar);
-    window.addEventListener('resize', updateChatScrollbar);
-    var dragging = false, startY = 0, startTop = 0;
-    thumbEl.addEventListener('pointerdown', function (e) {
-      dragging = true; startY = e.clientY; startTop = logEl.scrollTop;
-      try { thumbEl.setPointerCapture(e.pointerId); } catch (err) {}
-      e.preventDefault();
-    });
-    thumbEl.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
-      var maxTop = Math.max(1, trackEl.clientHeight - thumbEl.offsetHeight);
-      var frac = (e.clientY - startY) / maxTop;
-      logEl.scrollTop = startTop + frac * (logEl.scrollHeight - logEl.clientHeight);
-    });
-    var endDrag = function () { dragging = false; };
-    thumbEl.addEventListener('pointerup', endDrag);
-    thumbEl.addEventListener('pointercancel', endDrag);
-    trackEl.addEventListener('pointerdown', function (e) {
-      if (e.target !== trackEl) return;
-      var r = trackEl.getBoundingClientRect();
-      logEl.scrollTop = (e.clientY - r.top) / r.height * logEl.scrollHeight;
-    });
-    updateChatScrollbar();
-  }
-
   function appendMsg(cls, text) {
     if (!logEl) logEl = document.getElementById('chat-log');
+    if (!logEl) return null;
     var div = document.createElement('div');
     div.className = 'msg ' + cls;
     div.textContent = text;
     logEl.appendChild(div);
     logEl.scrollTop = logEl.scrollHeight;
-    updateChatScrollbar();
     return div;
   }
 
@@ -104,14 +50,13 @@
     } catch (e) {}
   }
 
-  // Typewriter reveal (visual-novel feel) with a soft blip every few chars.
   function typewriter(el, fullText, done) {
     var i = 0;
     el.textContent = '';
     var step = function () {
       i += 2;
       el.textContent = fullText.slice(0, i);
-      if (logEl) { logEl.scrollTop = logEl.scrollHeight; updateChatScrollbar(); }
+      if (logEl) logEl.scrollTop = logEl.scrollHeight;
       if (i % 8 === 0) blip();
       if (i < fullText.length) setTimeout(step, 18);
       else if (done) done();
@@ -132,22 +77,23 @@
   }
 
   function send(text) {
-    // A chat exchange replaces any lingering stage speech bubble (a stale
-    // "خواب خوبی بود!" over the stage during a chat looks desynced).
+    if (!text || !text.trim()) return;
     if (window.Game && window.Game.clearBubble) window.Game.clearBubble();
     appendMsg('me', text);
     var typing = appendMsg('sys', 'داره فکر می‌کنه...');
-    if (sendBtn) sendBtn.disabled = true;
-    if (inputEl) inputEl.disabled = true;
-
+    setInputsDisabled(true);
+    var controller = new AbortController();
+    var timeout = setTimeout(function () { controller.abort(); }, 45000); // Render free tier cold-starts slowly
     fetch(CHAT_API_BASE_URL + '/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ message: text }),
+      signal: controller.signal
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        typing.remove();
+        clearTimeout(timeout);
+        if (typing) typing.remove();
         var reply = (data && data.reply) ? String(data.reply) : '';
         if (!reply) reply = LOCAL_FALLBACK[Math.floor(Math.random() * LOCAL_FALLBACK.length)];
         var el = appendMsg('astolfo', '');
@@ -157,34 +103,90 @@
         });
       })
       .catch(function () {
-        typing.remove();
+        clearTimeout(timeout);
+        if (typing) typing.remove();
         var reply = LOCAL_FALLBACK[Math.floor(Math.random() * LOCAL_FALLBACK.length)];
         var el = appendMsg('astolfo', '');
-        // fx3 (audit F9): the fallback path never awarded the chat coin or
-        // the head reaction — same done-callback as the success path.
         typewriter(el, reply, function () {
           awardChatCoin();
           if (window.Rig) window.Rig.chatReact();
         });
         appendMsg('sys', '(چت آفلاین شد — ولی آستولفو هنوز اینجاست!)');
       })
-      .finally(function () {
-        if (sendBtn) sendBtn.disabled = false;
-        if (inputEl) {
-          inputEl.disabled = false;
-          // fx3 (audit F13): refocusing after every send re-pops the phone
-          // keyboard. Only refocus where there is a fine pointer (desktop).
-          if (window.matchMedia('(pointer:fine)').matches) inputEl.focus();
-        }
-      });
+      .finally(function () { setInputsDisabled(false); });
+  }
+
+  function setInputsDisabled(dis) {
+    ['chat-input', 'chat-input-sheet'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.disabled = dis;
+    });
+    ['chat-send', 'chat-send-sheet'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.disabled = dis;
+    });
+  }
+
+  function onOpen() {
+    if (!opened) {
+      opened = true;
+      logEl = document.getElementById('chat-log');
+      if (logEl && !logEl.children.length) {
+        appendMsg('astolfo', 'یاهو! خوش اومدی! امروز چطوری؟ بریم بازی کنیم؟');
+      }
+    }
+    var input = document.getElementById('chat-input-sheet');
+    if (input && window.matchMedia('(pointer:fine)').matches) input.focus();
   }
 
   function init() {
-    logEl = document.getElementById('chat-log');
-    inputEl = document.getElementById('chat-input');
-    sendBtn = document.getElementById('chat-send');
-    bindScrollbar();
+    var sendCollapsed = function () {
+      var input = document.getElementById('chat-input');
+      if (!input) return;
+      var text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      if (window.Game && window.Game.state && window.Game.state.sleeping) return;
+      openChatSheet();
+      send(text);
+    };
+    var sendSheet = function () {
+      var input = document.getElementById('chat-input-sheet');
+      if (!input) return;
+      var text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      send(text);
+    };
+    var sendBtn = document.getElementById('chat-send');
+    if (sendBtn) sendBtn.addEventListener('click', sendCollapsed);
+    var input = document.getElementById('chat-input');
+    if (input) input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); sendCollapsed(); }
+      else if (!window.Game || !window.Game.state.sleeping) {
+        // Tapping the collapsed input opens the frosted chat sheet.
+        if (!document.body.classList.contains('sheet-open')) openChatSheet();
+      }
+    });
+    if (input) input.addEventListener('focus', function () {
+      if (window.Game && window.Game.state && window.Game.state.sleeping) return;
+      openChatSheet();
+    });
+    var sendBtn2 = document.getElementById('chat-send-sheet');
+    if (sendBtn2) sendBtn2.addEventListener('click', sendSheet);
+    var input2 = document.getElementById('chat-input-sheet');
+    if (input2) input2.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); sendSheet(); }
+    });
+    var mic = document.getElementById('mic-btn');
+    if (mic) mic.addEventListener('click', function () {
+      if (window.Game) window.Game.sayBubble('میکروفون هنوز آماده نیست — فعلاً تایپ کن!');
+    });
   }
 
-  window.Chat = { init: init, send: send, baseUrl: CHAT_API_BASE_URL };
+  function openChatSheet() {
+    if (window.Game) window.Game.openSheet('chat');
+  }
+
+  window.Chat = { init: init, send: send, onOpen: onOpen, baseUrl: CHAT_API_BASE_URL, fallbackCount: LOCAL_FALLBACK.length };
 })();

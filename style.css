@@ -1,703 +1,276 @@
-/* Astolfo pixel pet — ONE visual language: all pixel.
-   Thick black borders, hard offset shadows, square corners, chunky pixel chrome.
-   No rounded pastel SaaS cards anywhere. Pixel dots background. */
+/* twinkywinky.org rebuild — DESIGN.md locked visual system */
+@font-face { font-family: 'Vazirmatn'; src: url('fonts/Vazirmatn-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Vazirmatn'; src: url('fonts/Vazirmatn-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Press Start 2P'; src: url('fonts/PressStart2P.ttf') format('truetype'); font-display: swap; }
+
 :root {
-  --pink-bg: #ffe3ef;
-  --pink-bg2: #fff0f6;
-  --pink-accent: #ff6b9d;
-  --pink-soft: #ffd6e8;
-  --ink: #1a1a1a;
-  --ink-body: #3a2b32;
-  --ink-soft: #5c434d;      /* dark enough for 12px labels on white (~7:1) */
-  --gold: #ffd94a;
-  --gold-text: #8a6100;     /* price text — dark enough to read */
-  --blue: #7ec8ff;
-  --orange: #ff9f43;
-  --purple: #8b7fd4;
-  --heart: #ff5d8f;
-  --green: #58c98b;      /* happiness — clearly different from affection pink */
-  --bar-bg: #ffe3ef;
-  --bar-low: #ff5b5b;
+  --wall: #F8E7CE; --wall-soft: #FDF3E3; --floor: #E8C9A0;
+  --rug-1: #BFE3D0; --rug-2: #F6C6B8; --rug-3: #FDF6EC;
+  --pink: #F27EA9; --pink-deep: #E85D8A; --pink-soft: #FBDCE8;
+  --ink: #4A3B47; --muted: #8A7A85; --card: #FFFDF8;
+  --gold: #F2B705; --mint: #7FC8A9; --sky: #A8D8EA;
+  --night-wall: #34305A; --night-floor: #453F63; --night-ink: #EDE7F6;
+  --shadow-card: 0 8px 24px rgba(74,59,71,.10);
+  --shadow-pill: 0 4px 14px rgba(74,59,71,.12);
+  --shadow-btn: 0 6px 18px rgba(74,59,71,.14);
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
-  font-family: Tahoma, 'Segoe UI', system-ui, sans-serif;
-  background-color: var(--pink-bg);
-  background-image: radial-gradient(#ffd6e8 2px, transparent 2.5px);
-  background-size: 26px 26px;
-  color: var(--ink-body);
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow-x: hidden;
-}
-#app { width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column; padding: 10px 10px calc(28px + env(safe-area-inset-bottom, 0px)); gap: 10px; }
-
-/* pixel icons — custom-drawn, same palette/style as the character.
-   Crisp at any size (image-rendering: pixelated). No emoji anywhere.
-   One pixel scale: 16-grid shown at 20px inline / 32px large = ~2px per pixel,
-   matching the character's on-screen pixel chunks. */
-.ic { width: 20px; height: 20px; image-rendering: pixelated; image-rendering: crisp-edges; vertical-align: -4px; }
-.ic-lg { width: 32px; height: 32px; image-rendering: pixelated; image-rendering: crisp-edges; display: block; margin: 0 auto 4px; }
-.chip .ic { width: 18px; height: 18px; vertical-align: -3px; }
-.meter-label .ic { width: 18px; height: 18px; vertical-align: -4px; }
-.menu-item .ic { width: 24px; height: 24px; vertical-align: -4px; }
-.menu-item .price .ic { width: 14px; height: 14px; vertical-align: -2px; }
-#minigame-top .ic { width: 20px; height: 20px; vertical-align: -4px; }
-.popup-card h2 .ic { width: 24px; height: 24px; vertical-align: -4px; }
-footer .ic { width: 14px; height: 14px; vertical-align: -2px; }
-.close .ic { width: 18px; height: 18px; vertical-align: -2px; }
-.mute-btn .ic { width: 18px; height: 18px; vertical-align: -3px; }
-#coin-float .ic { width: 16px; height: 16px; vertical-align: -2px; }
-
-/* HUD: ONE full-width white boxed header bar mirroring the footer —
-   the 4 chips live inside it. v6 note, corrected in v7: the "de-box"
-   claimed in v6 NEVER LANDED — the CSS below always had the 3px border +
-   hard shadow. That is DELIBERATE now: the boxed header matches the
-   boxed footer and the meters card (one visual language). The real v6
-   fix was the layout: title on one side, chips clustered on the other.
-   Do not claim this bar is flat. */
-#hud { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: #fff; border: 3px solid var(--ink); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); padding: 6px 10px; }
-/* v6: the status chips cluster in one group on one side and a crisp site
-   title sits on the other — the layout fix that killed the empty gaps
-   (the bar itself stays boxed, deliberately). */
-#hud-chips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-#hud-title { font-size: 16px; font-weight: 800; color: var(--ink-body); white-space: nowrap; }
-#hud-title .ic { width: 16px; height: 16px; vertical-align: -3px; }
-.chip {
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 0;
-  padding: 4px 10px;
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 3px 3px 0 var(--ink);
-  white-space: nowrap;
-  color: var(--ink-body);
-}
-.chip.level-chip { display: inline-flex; align-items: center; gap: 6px; }
-.xp-bar { display: inline-block; width: 64px; height: 8px; border: 2px solid var(--ink); background: #fff; vertical-align: middle; }
-.xp-bar > span { display: block; height: 100%; background: var(--purple); transition: width .5s ease; }
-.mute-btn { cursor: pointer; font-family: inherit; padding: 4px 8px; }
-.mute-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
-
-/* stat meters — one column, each bar its own colour, numeric values */
-#meters { display: flex; flex-direction: column; gap: 8px; background: #fff; border: 3px solid var(--ink); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); padding: 10px 12px; }
-#meters .meter-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-#meters .meter-label { width: 76px; flex: none; color: var(--ink-body); font-weight: 800; white-space: nowrap; }
-#meters .meter { flex: 1; height: 12px; background: var(--bar-bg); border: 2px solid var(--ink); border-radius: 0; overflow: hidden; }
-#meters .meter > div { height: 100%; transition: width .5s ease; }
-#meters .meter.low > div { background: var(--bar-low); }
-#bar-hunger { background: var(--orange); }
-#bar-happiness { background: var(--green); }
-#bar-energy { background: var(--gold); }
-#bar-cleanliness { background: var(--blue); }
-#bar-affection { background: var(--heart); }
-.meter-val { width: 58px; flex: none; text-align: right; font-weight: 800; color: var(--ink-body); font-variant-numeric: tabular-nums; }
-
-/* stage — a framed pixel room, not a blank canvas. 720x560: the stage is
-   SHORTER than square so the phone stage can span the full column width
-   and still fit the resting viewport. */
-#stage-wrap { position: relative; width: 100%; max-width: 420px; margin: 0 auto; aspect-ratio: 720 / 560; border: 3px solid var(--ink); border-radius: 0; box-shadow: 5px 5px 0 var(--ink); background: #ffe9f3; }
-#stage {
-  display: block;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  touch-action: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-/* speech bubble — ABOVE the head, pointer down to the head, never over the body */
-#speech-bubble {
-  position: absolute;
-  left: 50%;
-  top: 6px;
-  bottom: auto;
-  transform: translateX(-50%) translateY(-8px);
-  max-width: 88%;
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 0;
-  padding: 8px 12px;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.7;
-  text-align: center;
-  box-shadow: 3px 3px 0 var(--ink);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .25s ease, transform .25s ease;
-  z-index: 5;
-}
-#speech-bubble.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#speech-bubble::after {
-  content: '';
-  position: absolute;
-  bottom: -11px;
-  left: 50%;
-  margin-left: -8px;
-  border: 8px solid transparent;
-  border-top-color: var(--ink);
-  border-bottom: 0;
-}
-#coin-float {
-  position: absolute;
-  top: auto;
-  bottom: 92px; /* above the checker floor, clear of the poster (top-right) */
-  right: 12px;
-  font-weight: 800;
-  color: var(--gold-text);
-  font-size: 15px;
-  background: #fff;
-  border: 2px solid var(--ink);
-  box-shadow: 2px 2px 0 var(--ink);
-  padding: 2px 6px;
-  opacity: 0;
-  transition: opacity .3s, transform 1s;
-  z-index: 6;
-  pointer-events: none;
-}
-#coin-float.show { opacity: 1; transform: translateY(-18px); }
-
-/* sleep dim — a bare dim layer now. The sleep UI (note, bubble, Zzz) lives
-   in #sleep-fx ABOVE it: children of #stage-wrap can never escape its
-   brightness filter or sit above the veil, so the note used to overflow
-   the stage's left edge and the bubble/Zzz were crushed dim. */
-#sleep-veil {
-  position: fixed; inset: 0;
-  background: rgba(20, 10, 30, .42); /* v12: was .55 — with the stage
-    filter at .45 the face was barely visible (gp-05/gp-06). Lighter
-    veil + lighter stage filter keep it clearly "night" while the
-    closed-eye face still reads. */
-  z-index: 40;
-  display: none;
-  cursor: pointer;
-}
-body.sleeping #sleep-veil { display: block; }
-body.sleeping #stage-wrap { filter: brightness(.62) saturate(.85); }
-/* sleep UI layer, ABOVE the veil (z 41), positioned over the stage by JS.
-   pointer-events: none so taps fall through to the veil (tap-to-wake). */
-#sleep-fx { position: fixed; inset: 0; z-index: 41; pointer-events: none; display: none; }
-body.sleeping #sleep-fx { display: block; }
-/* the sleep note: a centred pixel box CONFINED inside the stage (JS sets
-   left/top/max-width from the stage rect). The old veil text was a bare
-   flex item on the full-screen veil — it drifted off the stage and «کن»
-   landed on the meters card. */
-.sleep-note {
-  position: absolute;
-  transform: translate(-50%, -100%); /* v12: was translate(-50%,-50%) —
-    the note was CENTRED on the stage, over her chest/neck (gp-05).
-    JS now sets top = stage bottom - 8px, so the note's BOTTOM edge
-    sits there and the box rises over the floor band, below her feet. */
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 0;
-  box-shadow: 4px 4px 0 var(--ink);
-  padding: 10px 14px;
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--ink-body);
-  text-align: center;
-  line-height: 1.6;
-  white-space: nowrap; /* v10: one line everywhere — no orphaned «کن» */
-}
-.sleep-note .ic { width: 22px; height: 22px; vertical-align: -4px; }
-/* sleep bubble: same pixel style as #speech-bubble, but ABOVE the veil and
-   positioned over the stage top by JS. The old in-stage bubble was dimmed
-   twice (stage filter + veil) and its «...Zzz» bidi order flipped. */
-#sleep-bubble {
-  position: absolute;
-  transform: translateX(-50%);
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 0;
-  box-shadow: 3px 3px 0 var(--ink);
-  padding: 8px 12px;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.7;
-  text-align: center;
-  opacity: 0;
-  transition: opacity .25s ease;
-}
-#sleep-bubble.show { opacity: 1; }
-#sleep-bubble::after {
-  content: '';
-  position: absolute;
-  bottom: -11px;
-  left: 50%;
-  margin-left: -8px;
-  border: 8px solid transparent;
-  border-top-color: var(--ink);
-  border-bottom: 0;
-}
-/* fx3 (audit F4): the veil used to swallow every click while sleeping, so
-   the feed/clean/play-while-sleeping refusal lines were unreachable via
-   the UI. The controls stay above the veil (z 41 > 40) and usable; the
-   stage itself stays dimmed and tap-to-wake. */
-body.sleeping #hud, body.sleeping #meters, body.sleeping #actions,
-body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41; }
-/* fx3 (audit F7) + v9: floating Zzz above the veil — spawned by
-   Rig.spawnZzz into #sleep-fx (above the veil, near the head). v9: the
-   old 2.6s animation was fully opaque for only ~0.4s of its life and
-   spawns came every 2.2s, so screenshots kept catching zero visible Zs.
-   Now fully opaque until 60% of a 2.8s life, spawned every 1.4s (two at
-   sleep start), so at least one bright Z is always on screen.
-   v10: the Z is a PIXEL Z (box-shadow grid, see rig.js pixelZShadows) —
-   no font glyph at all, so nothing smooth/anti-aliased shows. The span
-   is one 6px cell; the grid is drawn by its box-shadow. */
-/* v11: the Z is a CANVAS painted with pixel rects (see rig.js paintPixelZ)
-   — its intrinsic size is the Z itself (22-27px wide), so the span must
-   NOT force width/height 6px (that squashed the old box-shadow grid). */
-.zzz-float {
-  position: absolute;
-  width: auto; height: auto;
-  image-rendering: pixelated;
-  pointer-events: none;
-  animation: zzz-rise 2.8s ease-out forwards;
-}
-@keyframes zzz-rise {
-  0% { opacity: 0; transform: translateY(0); }
-  10% { opacity: 1; }
-  60% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(var(--zzz-rise, -70px)); }
-}
-
-/* action bar — v11: 6 buttons (quests joined); 6-across on phones too */
-#actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
-.act-btn {
-  border: 3px solid var(--ink);
-  background: #fff;
-  border-radius: 0;
-  padding: 8px 2px 6px;
-  font-size: 19px;
-  line-height: 1;
-  cursor: pointer;
-  font-family: inherit;
-  box-shadow: 3px 3px 0 var(--ink);
-}
-.act-btn small { display: block; font-size: 12px; margin-top: 4px; color: var(--ink-body); font-weight: 800; }
-.act-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
-.act-btn:disabled { opacity: .45; }
-
-/* popups (feed menu / shop) — centred on desktop; bottom-sheet only on
-   phones (see the phone media query). v10: the old flex-end stuck the
-   modal to the bottom edge on desktop. */
-.popup {
-  position: fixed; inset: 0;
-  background: rgba(26, 26, 26, .5);
-  z-index: 50;
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-.popup.show { display: flex; }
-.popup-card {
-  width: 100%; max-width: 480px;
-  max-height: 88vh;
-  overflow-y: auto;
-  background: var(--pink-bg2);
-  border: 3px solid var(--ink);
-  border-radius: 0;
-  box-shadow: 6px 6px 0 var(--ink);
-  padding: 14px 14px 20px;
-  margin: 0 8px 8px;
-}
-.popup-card h2 { font-size: 16px; margin-bottom: 10px; text-align: center; }
-.popup-card .close { float: left; border: none; background: none; font-size: 20px; cursor: pointer; color: var(--ink-soft); position: sticky; top: 0; z-index: 2; }
-/* v12: sticky modal header (shop). gp-35: on the phone the shop modal
-   opened scrolled down — no title, no tabs, the first card half-clipped
-   at the top edge and the X overlapping it. The close + title + tabs
-   now live in one sticky block with a solid background, so they stay
-   visible while the list scrolls under them; the card's scroll position
-   is also reset to 0 whenever the shop opens (index.html). */
-.popup-head {
-  position: sticky; top: -14px; z-index: 3;
-  background: var(--pink-bg2);
-  margin: -14px -14px 10px; padding: 12px 14px 10px;
-  border-bottom: 3px solid var(--ink);
-}
-.popup-head h2 { margin-bottom: 8px; }
-.popup-head #shop-tabs { margin-bottom: 0; }
-.popup-head .close { position: static; }
-.menu-row { display: flex; gap: 8px; margin-bottom: 8px; }
-.menu-item {
-  flex: 1;
-  border: 3px solid var(--ink);
-  background: #fff;
-  border-radius: 0;
-  box-shadow: 3px 3px 0 var(--ink);
-  padding: 10px 6px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: center;
-  line-height: 1.7;
-}
-.menu-item:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
-.menu-item .price { color: var(--gold-text); font-size: 12px; }
-/* v10: locked cards stay READABLE — warm-grey background, #555 text, full
-   opacity. The old .65 x :disabled .45 stacked to ~25% ghost text. */
-.menu-item.locked { opacity: 1; background: #efe6e0; color: #555; }
-.menu-item.locked:disabled { opacity: 1; }
-.menu-item .cant-afford { color: #b3261e; }
-.menu-item:disabled { opacity: .45; }
-
-/* mini-game overlay — overflow hidden is the safety net: the canvas must
-   never paint outside the stage, whatever its backing size is */
-#minigame-overlay {
-  position: absolute; inset: 0;
-  z-index: 20;
-  display: none;
-  flex-direction: column;
-  background: rgba(255, 233, 243, .30); /* v12: was .85 — an 85%-opaque
-    pale scrim over the WHOLE stage washed the character to a ghost
-    (gp-04). The overlay still tints the game area for contrast; the
-    character (canvas UNDER the overlay) now reads. */
-  border-radius: 0;
+  font-family: 'Vazirmatn', 'Noto Sans Arabic', sans-serif;
+  background: #EAD9BE; color: var(--ink);
   overflow: hidden;
 }
-#minigame-overlay.show { display: flex; }
-#minigame-top { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; font-weight: 800; font-size: 15px; }
-/* timer + score sit in matching white/black-bordered pixel HUD pills ON
-   TOP of the playfield — the old bare text read as a microscopic dot
-   (score) and stars spawned clipped in half behind the timer. */
-#minigame-top > span { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 8px; }
-/* v9: the score «۰» at 15px read as a stray dot next to the star. 20px digits. */
-/* v10: a «امتیاز» label sits next to the number — the Persian ۰ alone
-   still reads as a dot even at 20px. */
-/* v11: the ۰ glyph itself is tiny in Tahoma — 26px + 900 weight so it
-   matches the timer digits' visual weight (Gemini round 10). */
-#minigame-score, #minigame-time { font-size: 26px; font-weight: 900; line-height: 1; }
-#minigame-top small { font-size: 13px; }
-#minigame-exit { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 6px; cursor: pointer; font-family: inherit; line-height: 1; }
-#minigame-exit:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
-#minigame-exit .ic { width: 18px; height: 18px; vertical-align: -3px; }
-/* instruction bubble INSIDE the overlay, above the scrim — the old
-   sayBubble() line sat behind the overlay and read as ghost-gray text. */
-#minigame-instructions { margin: 0 10px 6px; background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 6px 10px; font-weight: 800; font-size: 14px; text-align: center; }
-/* v8: the banner auto-dismisses ~2.5s into the round (see game.js) so it
-   stops blocking the top drop zone — display:none frees the space and the
-   canvas backing is re-sized to match (window resize dispatch). */
-#minigame-instructions.gone { display: none; }
-/* min-height: 0 is ESSENTIAL: without it the canvas keeps its intrinsic
-   height (from the width/height attributes) and overflows the overlay —
-   in v4/v5 the canvas rendered 598px tall inside a 463px overlay, so
-   falling stars painted below the footer. */
-#minigame-canvas { flex: 1; min-height: 0; width: 100%; touch-action: none; image-rendering: pixelated; }
+img { image-rendering: pixelated; user-select: none; -webkit-user-drag: none; }
+button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+input { font-family: inherit; }
+.px-num { font-family: 'Press Start 2P', monospace; font-size: 11px; letter-spacing: 0; }
 
-/* chat — a real chat: message history + scroll, high-contrast send */
-#chat-box {
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 0;
-  box-shadow: 4px 4px 0 var(--ink);
-  padding: 10px;
-}
-#chat-log-wrap {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  max-height: 150px;
-  margin-bottom: 8px;
-}
-#chat-log {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  font-size: 13.5px;
-  line-height: 1.9;
-  padding: 2px;
-  /* the native scrollbar is hidden on purpose: headless Chromium paints
-     overlay scrollbars that never show in a static screenshot, so the
-     log gets a CUSTOM pixel scrollbar (see #chat-scrollbar) that is
-     always visible while the log overflows. */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-#chat-log::-webkit-scrollbar { width: 0; height: 0; display: none; }
-/* custom pixel scrollbar — a white track with a black border and a solid
-   black thumb, always visible while the log overflows (JS sizes and
-   positions the thumb, and it drags + track-clicks like a real one). */
-#chat-scrollbar {
-  flex: none;
-  width: 12px;
-  background: #fff;
-  border: 2px solid var(--ink);
-  position: relative;
-  display: none;
-  cursor: pointer;
-  margin-left: 6px;
-}
-#chat-scrollbar.show { display: block; }
-#chat-scrollbar-thumb {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  min-height: 22px;
-  background: var(--ink);
-  cursor: grab;
-}
-#chat-scrollbar-thumb:active { cursor: grabbing; }
-/* bubbles shrink-wrap to their content (max 82%) and anchor to opposite
-   sides — user right, Astolfo left — so the speaker is unmistakable. */
-#chat-log .msg { width: fit-content; max-width: 82%; margin-bottom: 6px; padding: 6px 10px; border: 2px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--ink); }
-#chat-log .msg.me { color: var(--ink-body); background: #fff; margin-left: auto; margin-right: 0; }
-#chat-log .msg.astolfo { font-weight: 700; background: var(--pink-soft); margin-right: auto; margin-left: 0; }
-#chat-log .msg.sys { color: var(--gold-text); font-size: 12px; border: none; background: none; text-align: center; padding: 2px 6px; }
-#chat-row { display: flex; gap: 8px; }
-#chat-input {
-  flex: 1;
-  min-width: 0;
-  border: 3px solid var(--ink);
-  border-radius: 0;
-  padding: 9px 10px;
-  font-family: inherit;
-  font-size: 14px;
-  outline: none;
-  background: #fff;
-}
-#chat-input:focus { border-color: var(--pink-accent); box-shadow: 3px 3px 0 var(--ink); }
-#chat-send {
-  border: 3px solid var(--ink);
-  background: var(--ink);
-  color: #fff;
-  border-radius: 0;
-  box-shadow: 3px 3px 0 var(--ink);
-  padding: 0 18px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
-#chat-send:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
-#chat-send:disabled { opacity: .5; }
+.app { width: 100%; max-width: 430px; height: 100dvh; margin: 0 auto; display: flex; flex-direction: column; position: relative; background: var(--wall); overflow: hidden; }
 
-footer { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink-body); padding: 8px 0; background: #fff; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+/* ---------- room ---------- */
+.room-wrap { flex: none; height: calc(100dvh - 244px); min-height: 540px; max-height: 600px; position: relative; transform-origin: top center; transition: transform .35s ease; z-index: 1; }
+body.sheet-open .room-wrap { transform: scale(.70); }
+.room { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, var(--wall-soft) 0%, var(--wall) 100%); transition: background .5s; }
+.room .floor-band { position: absolute; left: 0; right: 0; bottom: 0; height: 60px; background: var(--floor); border-top: 1px solid rgba(74,59,71,.18); z-index: 1; }
+.room .rug-img { position: absolute; left: 35px; top: 496px; width: 320px; height: 96px; z-index: 2; }
+#charCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; }
+.prop { position: absolute; z-index: 4; cursor: pointer; }
+.prop:active { filter: brightness(1.08); }
+#p-window { left: 130px; top: 58px; width: 130px; height: 130px; z-index: 2; }
+#p-window .win-img { position: absolute; inset: 0; width: 100%; height: 100%; }
+#p-window.opening .win-open { animation: sashSwing .55s ease; transform-origin: 100% 50%; }
+@keyframes sashSwing { 0% { transform: rotate(0deg) scale(1); } 35% { transform: rotate(-16deg) scale(1.02); } 70% { transform: rotate(-5deg); } 100% { transform: rotate(0deg); } }
+/* Gathered curtains: vertical fold stripes + a tie-back waist + a wavy
+   scalloped hem, so they read as bunched fabric framing the window instead
+   of flat mint pillars with a pink band. The pink sash now sits on the
+   waist (the tie-back), tilted like a tied sash. */
+.curtain { position: absolute; top: 100px; width: 36px; height: 92px; z-index: 2;
+  background:
+    repeating-linear-gradient(90deg, rgba(64,110,80,.20) 0 3px, rgba(255,255,255,.14) 3px 6px, rgba(64,110,80,0) 6px 11px),
+    linear-gradient(90deg, #a9d6b6 0%, #d4efdd 50%, #a9d6b6 100%);
+  clip-path: polygon(4% 0, 96% 0, 90% 46%, 100% 78%, 88% 90%, 74% 100%, 60% 90%, 46% 100%, 30% 90%, 14% 100%, 0 80%, 10% 46%);
+}
+.curtain::after { content: ''; position: absolute; left: 3px; right: 3px; top: 42px; height: 7px; background: var(--pink); opacity: .85; border-radius: 4px; }
+.curtain.l::after { transform: rotate(-7deg); }
+.curtain.r::after { transform: rotate(7deg); }
+.curtain.l { left: 92px; } .curtain.r { right: 92px; }
+body.window-open .curtain.l { animation: sway 3s ease-in-out infinite; transform-origin: top center; }
+body.window-open .curtain.r { animation: sway 3s ease-in-out infinite reverse; transform-origin: top center; }
+@keyframes sway { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(4deg); } }
+#p-shelf { left: 10px; top: 300px; width: 68px; height: 62px; z-index: 2; }
+#p-books { left: 14px; top: 314px; width: 50px; height: 30px; z-index: 5; transition: transform .3s ease; }
+#p-books.tipping { transform: rotate(-38deg) translate(-4px, 2px); }
+#p-plant { left: 46px; top: 312px; width: 32px; height: 32px; z-index: 5; }
+#p-clock { left: 12px; top: 200px; width: 58px; height: 60px; z-index: 2; }
+#p-clock .clock-face { position: absolute; inset: 0; width: 100%; height: 100%; }
+#p-clock .clock-hand { position: absolute; left: 0; top: 0; width: 58px; height: 60px; }
+#p-poster { left: 290px; top: 200px; width: 80px; height: 90px; z-index: 2; }
+#p-lamp { left: 350px; top: 360px; width: 36px; height: 180px; z-index: 4; }
+.lamp-glow { position: absolute; left: 250px; top: 330px; width: 140px; height: 220px; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(255,214,120,.55) 0%, rgba(255,214,120,0) 70%); z-index: 2; opacity: 0; transition: opacity .4s; pointer-events: none; }
+body.lamp-on .lamp-glow { opacity: 1; }
+body.lamp-on.sleeping .lamp-glow, body.sleeping .lamp-glow { opacity: .9; }
+#p-plush { left: 318px; top: 482px; width: 56px; height: 56px; z-index: 4; }
+#p-ball { left: 60px; top: 520px; width: 40px; height: 40px; z-index: 4; }
+#p-musicbox { left: 16px; top: 490px; width: 44px; height: 46px; z-index: 4; }
+#p-bowl { left: 290px; top: 520px; width: 40px; height: 35px; z-index: 4; }
+#p-diary { left: 18px; top: 562px; width: 40px; height: 30px; z-index: 4; }
+#falling-book { position: absolute; width: 50px; height: 30px; z-index: 6; display: none; }
+#fairy-lights { position: absolute; left: 0; right: 0; top: 12px; height: 30px; z-index: 2; display: none; pointer-events: none; }
+body.has-fairylights #fairy-lights { display: block; }
+#fairy-lights span { position: absolute; top: 6px; width: 8px; height: 8px; border-radius: 50%; animation: twinkle 1.6s ease-in-out infinite; }
+@keyframes twinkle { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
 
-/* v11: memory-match cards — 3x2 grid. Face-down = pink with a sparkle;
-   flipped = white with the icon. The flip is a visibility swap (no 3D
-   transform — the pixel style stays flat and chunky). */
-#memory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 10px; }
-.memory-card {
-  aspect-ratio: 1;
-  border: 3px solid var(--ink);
-  background: var(--pink-accent);
-  box-shadow: 3px 3px 0 var(--ink);
-  cursor: pointer;
-  padding: 0;
-  position: relative;
-}
-.memory-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
-.memory-card .memory-back, .memory-card .memory-face {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-.memory-card .memory-face { display: none; background: #fff; }
+/* HUD pills + meter rings */
+.hud { position: absolute; top: 12px; left: 10px; right: 10px; display: flex; gap: 6px; align-items: center; z-index: 10; }
+.pill { background: rgba(255,253,248,.92); border-radius: 999px; box-shadow: var(--shadow-pill); padding: 6px 10px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.pill img { width: 18px; height: 18px; }
+.pill .coin-ic { width: 16px; height: 16px; }
+#gear-btn { margin-inline-start: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,253,248,.92); box-shadow: var(--shadow-pill); display: flex; align-items: center; justify-content: center; }
+#gear-btn img { width: 22px; height: 22px; }
+.rings { position: absolute; top: 58px; left: 8px; right: 8px; display: flex; justify-content: space-between; z-index: 10; pointer-events: none; }
+.ring-cluster { display: flex; gap: 4px; }
+.ring { position: relative; width: 36px; height: 36px; background: #fff; border-radius: 50%; box-shadow: var(--shadow-pill); display: flex; align-items: center; justify-content: center; }
+.ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ring svg circle { fill: none; stroke-width: 3.5; }
+.ring .ring-bg { stroke: rgba(74,59,71,.12); }
+.ring img { width: 20px; height: 20px; position: relative; }
+.ring.low { box-shadow: 0 0 0 3px rgba(232,145,58,.55), var(--shadow-pill); }
+
+/* right rail */
+.rail { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 10; }
+.rail button { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,253,248,.94); box-shadow: var(--shadow-btn); display: flex; align-items: center; justify-content: center; }
+.rail button img { width: 24px; height: 24px; }
+
+/* speech bubble */
+#bubble { position: absolute; right: 6px; top: 118px; max-width: 150px; background: #fff; border-radius: 16px; padding: 8px 12px; font-size: 14px; font-weight: 700; box-shadow: var(--shadow-card); z-index: 11; opacity: 0; transform: translateY(4px) scale(.96); transition: opacity .25s, transform .25s; pointer-events: none; }
+#bubble::after { content: ''; position: absolute; left: 18px; bottom: -7px; width: 14px; height: 14px; background: #fff; transform: rotate(45deg); border-radius: 3px; }
+#bubble.show { opacity: 1; transform: translateY(0) scale(1); }
+body.sheet-open #bubble { opacity: 0 !important; }
+#hearts { position: absolute; inset: 0; z-index: 12; pointer-events: none; overflow: hidden; }
+#hearts .h { position: absolute; width: 22px; height: 22px; animation: floatUp 1.4s ease-out forwards; }
+@keyframes floatUp { 0% { opacity: 0; transform: translateY(0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-70px) scale(1.1); } }
+#droplets { position: absolute; inset: 0; z-index: 12; pointer-events: none; overflow: hidden; }
+#droplets .d { position: absolute; width: 6px; height: 10px; background: #7FB8D8; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; animation: drop .8s ease-in forwards; }
+@keyframes drop { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(46px); } }
+
+/* sleep */
+#sleep-veil { position: absolute; inset: 0; z-index: 8; background: rgba(52,48,90,.18); opacity: 0; pointer-events: none; transition: opacity .6s; }
+body.sleeping #sleep-veil { opacity: 1; }
+#sleep-z { position: absolute; z-index: 9; pointer-events: none; display: none; }
+body.sleeping #sleep-z { display: block; }
+#sleep-z span { position: absolute; color: #B9A8E8; font-family: 'Press Start 2P', monospace; animation: zfloat 3s ease-in-out infinite; }
+#sleep-z span:nth-child(1) { font-size: 14px; left: 0; top: 18px; }
+#sleep-z span:nth-child(2) { font-size: 18px; left: 16px; top: 0; animation-delay: .5s; }
+#sleep-z span:nth-child(3) { font-size: 11px; left: 34px; top: 10px; animation-delay: 1s; }
+@keyframes zfloat { 0%,100% { transform: translateY(0); opacity: .7; } 50% { transform: translateY(-8px); opacity: 1; } }
+body.sleeping .room { background: linear-gradient(180deg, #3A3666 0%, var(--night-wall) 100%); }
+body.sleeping .room .floor-band { background: var(--night-floor); }
+body.sleeping .pill, body.sleeping .ring, body.sleeping .rail button, body.sleeping #gear-btn { background: rgba(60,54,102,.85); color: var(--night-ink); }
+body.sleeping .dock button { background: rgba(60,54,102,.9); color: var(--night-ink); }
+body.sleeping .dock { background: #2E2A52; }
+body.sleeping .chat-row { background: #2E2A52; }
+body.sleeping .today-strip { background: #2E2A52; color: var(--night-ink); }
+body.sleeping .room .curtain, body.sleeping .prop { opacity: .75; }
+body.sleeping #p-window { filter: brightness(.42) hue-rotate(205deg) saturate(1.3); }
+body.room-pink { --wall: #F9DCE6; --wall-soft: #FDEEF3; }
+body.room-mint { --wall: #D8EFE2; --wall-soft: #EDF8F1; }
+body.room-lavender { --wall: #E4DDF5; --wall-soft: #F1EDFB; }
+body.night-mode .room { filter: brightness(.72) saturate(.85); }
+body.night-mode .dock, body.night-mode .chat-row, body.night-mode .today-strip { filter: brightness(.8); }
+
+/* ---------- dock ---------- */
+.dock { flex: none; height: 104px; display: flex; justify-content: space-evenly; align-items: center; background: var(--card); z-index: 5; padding-bottom: 6px; }
+.dock button { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dock .dock-ic { width: 60px; height: 60px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-btn); display: flex; align-items: center; justify-content: center; }
+.dock .dock-ic img { width: 30px; height: 30px; }
+.dock button:active .dock-ic { transform: scale(.94); background: var(--pink-soft); }
+.dock span { font-size: 13px; font-weight: 700; }
+
+/* ---------- chat row ---------- */
+.chat-row { flex: none; height: 64px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--card); z-index: 5; }
+.chat-row .mic-btn, .chat-row .send-btn { flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-btn); }
+.chat-row .mic-btn { background: #fff; }
+.chat-row .send-btn { background: var(--pink); }
+.chat-row .mic-btn img, .chat-row .send-btn img { width: 24px; height: 24px; }
+.chat-row .send-btn svg { width: 22px; height: 22px; }
+#chat-input { flex: 1; height: 48px; border: 1px solid rgba(74,59,71,.12); border-radius: 999px; background: #fff; padding: 0 16px; font-size: 15px; outline: none; }
+#chat-input:focus { border-color: var(--pink); }
+.chat-row .quiet-pill { flex: 1; height: 48px; border-radius: 999px; background: rgba(74,59,71,.08); display: none; align-items: center; justify-content: center; font-size: 14px; color: var(--muted); }
+.chat-row .wake-pill { flex: none; height: 48px; padding: 0 16px; border-radius: 999px; background: var(--pink); color: #fff; font-weight: 700; font-size: 14px; display: none; align-items: center; }
+body.sleeping .chat-row .mic-btn, body.sleeping .chat-row .send-btn, body.sleeping #chat-input { display: none; }
+body.sleeping .chat-row .quiet-pill, body.sleeping .chat-row .wake-pill { display: flex; }
+
+/* ---------- today strip ---------- */
+.today-strip { flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--card); font-size: 13px; z-index: 5; border-top: 1px solid rgba(74,59,71,.06); cursor: pointer; }
+.today-strip img { width: 18px; height: 18px; }
+.today-strip .streak { margin-inline-start: auto; color: var(--muted); font-size: 12px; }
+
+/* ---------- sheets ---------- */
+.sheet-backdrop { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; background: rgba(74,59,71,.18); z-index: 20; opacity: 0; pointer-events: none; transition: opacity .3s; }
+body.sheet-open .sheet-backdrop { opacity: 1; pointer-events: auto; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; max-height: 65%; background: var(--card); border-radius: 24px 24px 0 0; box-shadow: 0 -12px 40px rgba(74,59,71,.25); z-index: 21; transform: translateY(105%); transition: transform .35s ease; display: flex; flex-direction: column; overflow: hidden; }
+body.sheet-open .sheet { transform: translateY(0); }
+.sheet .handle { flex: none; width: 36px; height: 4px; border-radius: 2px; background: rgba(74,59,71,.25); margin: 10px auto 4px; }
+.sheet header { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 16px 10px; }
+.sheet header h2 { font-size: 21px; font-weight: 700; }
+.sheet header .coin-pill { margin-inline-start: 4px; }
+.sheet header .x-btn { margin-inline-start: auto; width: 44px; height: 44px; border-radius: 50%; background: rgba(74,59,71,.07); display: flex; align-items: center; justify-content: center; }
+.sheet header .x-btn img { width: 20px; height: 20px; }
+.sheet .sheet-body { flex: 1; overflow-y: auto; padding: 4px 16px 20px; }
+.sheet-panel { display: none; }
+.sheet-panel.active { display: block; }
+.sheet.frosted { background: rgba(255,253,248,.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+/* shop */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip { padding: 7px 13px; border-radius: 999px; background: rgba(74,59,71,.07); font-size: 13px; font-weight: 700; }
+.chip.on { background: var(--pink); color: #fff; }
+.shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.shop-card { background: #fff; border: 1px solid rgba(74,59,71,.08); border-radius: 16px; padding: 12px; box-shadow: var(--shadow-card); text-align: center; }
+.shop-card img.art { width: 96px; height: 96px; }
+.shop-card .nm { font-size: 14px; font-weight: 700; margin: 6px 0 2px; }
+.shop-card .fx { font-size: 12px; color: var(--muted); min-height: 30px; }
+.shop-card .price-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; }
+.shop-card .price-row img { width: 16px; height: 16px; }
+.buy-btn { margin-top: 8px; background: var(--pink); color: #fff; border-radius: 999px; padding: 8px 18px; font-weight: 700; font-size: 14px; }
+.buy-btn:disabled { background: rgba(74,59,71,.25); }
+.shop-card.locked { opacity: .75; }
+.shop-card.locked img.art { filter: grayscale(1); opacity: .45; }
+.shop-card.locked .lock-line { font-size: 12px; color: var(--muted); margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.shop-card.locked .lock-line img { width: 14px; height: 14px; }
+.shop-card.owned .buy-btn { background: var(--mint); }
+
+/* games */
+.game-card { display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 16px; padding: 12px; box-shadow: var(--shadow-card); margin-bottom: 12px; }
+.game-card .tile { flex: none; width: 76px; height: 76px; border-radius: 14px; background: var(--pink-soft); display: flex; align-items: center; justify-content: center; }
+.game-card .tile img { width: 52px; height: 52px; }
+.game-card .g-info { flex: 1; min-width: 0; }
+.game-card .g-info h3 { font-size: 16px; }
+.game-card .g-info p { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game-card .g-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.game-card .play-btn { flex: none; background: var(--pink); color: #fff; border-radius: 999px; padding: 9px 16px; font-weight: 700; }
+.sheet-foot { display: flex; align-items: center; gap: 8px; padding: 12px 4px; font-weight: 700; cursor: pointer; }
+.sheet-foot img { width: 22px; height: 22px; }
+
+/* game play areas */
+.play-area { text-align: center; }
+.play-area .status { font-size: 15px; font-weight: 700; min-height: 24px; margin: 8px 0; }
+.play-area canvas { border-radius: 16px; background: linear-gradient(180deg, #FDF3E3, #F8E7CE); box-shadow: var(--shadow-card); }
+.play-area .row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.play-area .row button, .mini-btn { background: var(--pink); color: #fff; border-radius: 999px; padding: 10px 20px; font-weight: 700; font-size: 14px; }
+.play-area .row button.ghost { background: rgba(74,59,71,.12); color: var(--ink); }
+.memory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+.memory-card { aspect-ratio: 1; border-radius: 14px; background: var(--pink-soft); box-shadow: var(--shadow-card); position: relative; }
+.memory-card img { width: 56px; height: 56px; position: absolute; inset: 0; margin: auto; }
+.memory-card .memory-face { display: none; }
 .memory-card.flipped { background: #fff; }
+.memory-card.flipped .memory-face { display: block; }
 .memory-card.flipped .memory-back { display: none; }
-.memory-card.flipped .memory-face { display: flex; }
-.memory-card .memory-face .ic-lg { width: 40px; height: 40px; margin: 0; }
-.game-status { text-align: center; font-weight: 800; font-size: 14px; line-height: 1.7; min-height: 24px; }
+.memory-card.done { opacity: .45; }
+.timing-track { position: relative; height: 34px; border-radius: 999px; background: rgba(74,59,71,.1); margin: 24px 4px 8px; }
+.timing-zone { position: absolute; top: 0; bottom: 0; background: var(--gold); border-radius: 999px; opacity: .75; }
+.timing-marker { position: absolute; top: -6px; bottom: -6px; width: 8px; margin-left: -4px; background: var(--pink-deep); border-radius: 4px; }
+.hide-spots { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.hide-spots button { background: #fff; border: 1px solid rgba(74,59,71,.1); border-radius: 14px; padding: 14px; font-size: 15px; font-weight: 700; box-shadow: var(--shadow-card); text-align: start; }
 
-/* v11: timing game — a long pixel bar, a gold zone, a black marker that
-   sweeps back and forth, and a big tap button. */
-#timing-bar {
-  position: relative;
-  height: 28px;
-  background: var(--pink-soft);
-  border: 3px solid var(--ink);
-  box-shadow: 3px 3px 0 var(--ink);
-  margin: 12px 0;
-  overflow: hidden;
-}
-#timing-zone { position: absolute; top: 0; bottom: 0; background: var(--gold); border-left: 2px solid var(--ink); border-right: 2px solid var(--ink); }
-#timing-marker { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; background: var(--ink); }
-#timing-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; margin-bottom: 10px; }
-.timing-tap { width: 100%; padding: 14px; font-size: 18px; }
+/* chat sheet */
+#chat-log { display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
+.msg { max-width: 82%; padding: 10px 14px; border-radius: 16px; font-size: 15px; box-shadow: var(--shadow-pill); }
+.msg.me { align-self: flex-end; background: var(--pink); color: #fff; border-end-end-radius: 6px; }
+.msg.astolfo { align-self: flex-start; background: #fff; border-end-start-radius: 6px; }
+.msg.sys { align-self: center; background: none; box-shadow: none; color: var(--muted); font-size: 12px; padding: 2px; }
+.chat-sheet-input { flex: none; display: flex; gap: 8px; padding: 10px 16px 16px; }
+.chat-sheet-input input { flex: 1; height: 48px; border: 1px solid rgba(74,59,71,.12); border-radius: 999px; padding: 0 16px; font-size: 15px; outline: none; background: #fff; }
+.chat-sheet-input button { width: 48px; height: 48px; border-radius: 50%; background: var(--pink); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-btn); }
+.presence { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--mint); font-weight: 700; }
+.presence .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); }
 
-/* shop category tabs — ONE row, horizontally scrollable. v12: the old
-   flex-wrap left «خوراکی» alone on a second row (gp-08/gp-14/gp-27,
-   desktop AND phone). Tabs never shrink (flex: none) so every label
-   stays whole; the row scrolls instead of wrapping. */
-#shop-tabs { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; margin-bottom: 10px; scrollbar-width: none; }
-#shop-tabs::-webkit-scrollbar { display: none; }
-.shop-tab {
-  flex: none;
-  border: 3px solid var(--ink); background: #fff; border-radius: 0;
-  box-shadow: 2px 2px 0 var(--ink); padding: 4px 6px; /* v12: was 4px 10px —
-    the 8 tabs overflowed the 446px row by 30px and «خوراکی» sat half-clipped
-    (gp-08). 6px sides save 64px, so all 8 fit on desktop; on the phone the
-    row still scrolls, as it must at 370px wide. */
-  font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
-  color: var(--ink-body);
-}
-.shop-tab:active { transform: translate(2px, 2px); box-shadow: none; }
-.shop-tab.active { background: var(--ink); color: #fff; }
-
-/* leaderboard — top-5 table (gold/silver/bronze rows), records grid, achievements */
-.lb-h { font-size: 14px; margin: 12px 0 6px; text-align: right; }
-.lb-empty { text-align: center; font-weight: 800; font-size: 13px; padding: 8px 0; }
-.lb-table { width: 100%; border-collapse: collapse; font-size: 13px; font-weight: 800; }
-.lb-table td { border: 2px solid var(--ink); background: #fff; padding: 6px 8px; text-align: center; }
-.lb-table tr.rank-gold td { background: #ffe98a; }
-.lb-table tr.rank-silver td { background: #e8e8e8; }
-.lb-table tr.rank-bronze td { background: #f2c184; }
-.lb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.lb-cell { border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink); padding: 8px 4px; text-align: center; }
-.lb-num { display: block; font-size: 15px; font-weight: 900; }
-.lb-label { display: block; font-size: 11px; font-weight: 700; color: var(--ink-soft); line-height: 1.5; }
-.lb-ach { display: flex; gap: 8px; align-items: center; border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink); padding: 8px 10px; margin-bottom: 8px; font-size: 13px; line-height: 1.6; }
-.lb-ach.unlocked { background: #fff8d6; }
-.lb-ach.locked { background: #efe6e0; color: #777; }
-.lb-ach .lb-star-ic { width: 20px; height: 20px; flex: none; }
-.lb-ach.locked .lb-star-ic.lb-star-off { filter: grayscale(1); opacity: 0.45; }
-.lb-ach .lb-desc { font-size: 12px; color: var(--ink-soft); }
-
-/* v11: quest rows — text left, claim button right. */
-.quest-row {
-  display: flex; gap: 10px; align-items: center; justify-content: space-between;
-  border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink);
-  padding: 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.7;
-}
-.quest-row.done { background: #efe6e0; }
-.quest-row .quest-desc { color: var(--ink-soft); font-size: 12px; }
-.quest-claim { flex: none; width: 96px; }
-/* v12: a disabled claim button must LOOK disabled, not just be disabled.
-   gp-20: an incomplete quest («به سطح ۳ برس», ۲/۳) showed the same
-   active «بگیر!» button as completed quests. The code already disables
-   it (renderQuests: «در حال انجام», disabled) — but the generic
-   .menu-item:disabled opacity .45 read as a rendering artifact, so now
-   an explicit flat grey: no checkmark, grey fill, grey text. */
-.quest-claim:disabled { background: #efe6e0; color: #777; opacity: 1; cursor: default; box-shadow: 2px 2px 0 #bbb; }
-.quest-row .price { color: var(--gold-text); font-size: 12px; }
-
-/* v11: settings rows — label left, toggle button right. */
-.setting-row {
-  display: flex; gap: 10px; align-items: center; justify-content: space-between;
-  border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink);
-  padding: 10px; margin-bottom: 10px; font-size: 14px; font-weight: 800;
-}
-.toggle-btn {
-  border: 3px solid var(--ink); background: var(--ink); color: #fff;
-  font-family: inherit; font-size: 13px; font-weight: 800;
-  padding: 6px 14px; cursor: pointer; min-width: 84px;
-}
-.toggle-btn[data-on="false"] { background: #fff; color: var(--ink-body); }
-.toggle-btn:active { transform: translate(2px, 2px); }
-
-/* phone: 5-across icon strip (no 3x2 grid hole), compressed stage so the
-   whole resting view fits, one-row HUD */
-@media (max-width: 640px) {
-  #app { gap: 8px; padding: 8px 10px calc(16px + env(safe-area-inset-bottom, 0px)); }
-  #hud { gap: 6px; padding: 5px 8px; }
-  #hud-title { display: none; } /* phone header stays the tight chip row */
-  /* v7: with the title hidden the chips are the only child — flex:1 +
-     space-between spreads them edge-to-edge across the bar. v6 clustered
-     them right and left a ~55px empty white hole on the left. */
-  #hud-chips { flex: 1; gap: 6px; justify-content: space-between; }
-  .chip { padding: 3px 7px; font-size: 12px; }
-  .xp-bar { width: 40px; }
-  #meters { padding: 8px 10px; gap: 6px; }
-  #meters .meter-row { font-size: 12px; }
-  /* the stage spans the EXACT full column width as the cards above and
-     below it — no more pinched narrower stage box */
-  #stage-wrap { width: 100%; max-width: none; }
-  /* smaller bubble on the short phone stage so its pointer clears the hair */
-  #speech-bubble { font-size: 12px; padding: 5px 9px; top: 4px; }
-  /* v10: the sleep note is one line on the phone — no orphaned «کن» —
-     and smaller, so it stops covering the neck/chest. */
-  .sleep-note { font-size: 14px; padding: 8px 10px; }
-  .sleep-note .ic { width: 18px; height: 18px; vertical-align: -3px; }
-  /* v10: bottom-sheet modals only on phones; desktop centres them. */
-  .popup { align-items: flex-end; }
-  /* play menu on the phone: let the 3 game cards wrap instead of squeezing
-     into one row (the «ضربه‌ی دقیق» label used to wrap mid-word). */
-  #play-menu .menu-row, #feed-menu .menu-row { flex-wrap: wrap; }
-  #play-menu .menu-item, #feed-menu .menu-item { flex: 1 1 90px; font-size: 12px; }
-  /* v11: 6 action buttons across on phones — tighter padding + smaller icons */
-  #actions { grid-template-columns: repeat(6, 1fr); gap: 6px; }
-  .act-btn { padding: 6px 1px 5px; }
-  .act-btn .ic-lg { width: 26px; height: 26px; }
-  .act-btn small { font-size: 10px; margin-top: 3px; }
-  #chat-log-wrap { max-height: 150px; }
-  body.typing #stage-wrap { max-width: 200px; }
-  /* the bubble would cover the whole shrunken stage — hide it while typing */
-  body.typing #speech-bubble { display: none; }
-}
-
-/* narrow phones (<=500px): the HUD chip row MUST stay on one line in
-   every state (happy, sleeping, all moods) even with the trophy button
-   added — tighter padding/gaps, smaller icons, mood chip ellipsised. */
-@media (max-width: 500px) {
-  #hud { padding: 4px 6px; gap: 4px; }
-  #hud-chips { gap: 4px; flex-wrap: nowrap; }
-  .chip { padding: 2px 5px; font-size: 11px; height: 26px; display: inline-flex; align-items: center; }
-  .chip .ic { width: 14px; height: 14px; vertical-align: -2px; }
-  .mute-btn { padding: 2px 5px; }
-  .mute-btn .ic { width: 14px; height: 14px; }
-  .xp-bar { width: 28px; }
-  #mood-val { display: inline-block; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
-  #meters .meter-label { width: 66px; font-size: 11px; }
-  #meters .meter-val { width: 52px; font-size: 11px; }
-  #play-menu .menu-item, #feed-menu .menu-item { font-size: 11px; }
-}
-
-/* very short screens (e.g. 360x640): squeeze harder so the chat input
-   still fits without being sliced. The stage stays full-width; the footer
-   is dropped here to buy the last few pixels. */
-@media (max-width: 640px) and (max-height: 700px) {
-  #app { gap: 5px; padding: 6px 8px 4px; }
-  #meters { padding: 6px 8px; gap: 4px; }
-  #meters .meter-row { font-size: 11px; }
-  #chat-log-wrap { max-height: 40px; }
-  .act-btn { padding: 4px 1px 4px; }
-  footer { display: none; }
-}
-
-/* desktop: fill the width — framed stage left, panel right.
-   The chat row is 1fr so ALL slack goes into the chat log: no dead gaps
-   in the left column, chat bottom flush with the stage bottom. */
-@media (min-width: 900px) {
-  #app {
-    max-width: 1060px;
-    min-height: auto; /* size to content: the 1fr chat row must NOT stretch
-      the stage past square (the canvas is 720x720 — a taller box would
-      stretch the sprite vertically) */
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
-    grid-template-rows: auto auto auto 1fr auto;
-    grid-template-areas:
-      "hud hud"
-      "stage meters"
-      "stage actions"
-      "stage chat"
-      "footer footer";
-    gap: 14px;
-    align-items: stretch;
-    padding: 20px 20px calc(28px + env(safe-area-inset-bottom, 0px));
-  }
-  #hud { grid-area: hud; justify-content: space-between; flex-wrap: nowrap; }
-  #meters { grid-area: meters; }
-  /* align-self:start: the wrap keeps its 720/560 aspect even if the chat
-     column ever grows — a misaligned bottom is a far better failure mode
-     than a vertically stretched sprite. (The log cap below is what keeps
-     the columns flush in practice.) */
-  #stage-wrap { grid-area: stage; max-width: none; align-self: start; }
-  #actions { grid-area: actions; }
-  #chat-box { grid-area: chat; display: flex; flex-direction: column; }
-  /* CAP the desktop log: without it, a longer conversation grows the grid
-     container and stretches the stage (469 -> 519px, ~11% vertical sprite
-     distortion, caught in v5 verification). The log scrolls internally. */
-  #chat-log-wrap { flex: 1; min-height: 0; max-height: 150px; }
-  footer {
-    grid-area: footer;
-    font-size: 13px;
-  }
-}
+/* lists: quests, diary, leaderboard, settings */
+.q-row, .d-row, .lb-row, .s-row { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 12px; box-shadow: var(--shadow-card); margin-bottom: 10px; }
+.q-row img, .lb-row img { width: 26px; height: 26px; }
+.q-row .q-info, .d-row .d-info { flex: 1; }
+.q-row h4, .d-row h4 { font-size: 15px; }
+.q-row p, .d-row p { font-size: 13px; color: var(--muted); }
+.q-row .claim-btn { background: var(--gold); border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 13px; }
+.q-row .claim-btn:disabled { background: rgba(74,59,71,.15); color: var(--muted); }
+.d-row .d-date { font-size: 12px; color: var(--muted); }
+.lb-row .rank { font-family: 'Press Start 2P', monospace; font-size: 12px; width: 28px; }
+.s-row { justify-content: space-between; font-weight: 700; }
+.s-row .tog { width: 52px; height: 30px; border-radius: 999px; background: rgba(74,59,71,.2); position: relative; }
+.s-row .tog::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.s-row .tog.on { background: var(--pink); }
+.s-row .tog.on::after { transform: translateX(-22px); }
+[dir="rtl"] .s-row .tog.on::after { transform: translateX(22px); }
+.s-row select { font-family: inherit; font-size: 14px; border: 1px solid rgba(74,59,71,.2); border-radius: 10px; padding: 6px 8px; background: #fff; }
+.food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.food-card { background: #fff; border-radius: 16px; padding: 14px; box-shadow: var(--shadow-card); text-align: center; }
+.food-card img { width: 56px; height: 56px; }
+.food-card h4 { font-size: 15px; margin: 4px 0; }
+.food-card p { font-size: 12px; color: var(--muted); }
+.food-card .buy-btn { margin-top: 8px; }
+.empty-note { text-align: center; color: var(--muted); padding: 24px 8px; font-size: 14px; }
+#install-btn { display: none; width: 100%; margin-top: 12px; background: var(--pink); color: #fff; border-radius: 999px; padding: 12px; font-weight: 700; }
+#toast { position: absolute; bottom: 250px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 700; z-index: 40; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (max-width: 360px) { .dock .dock-ic { width: 54px; height: 54px; } }

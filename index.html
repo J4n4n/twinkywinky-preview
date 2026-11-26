@@ -2,499 +2,193 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>آستولفو — twinkywinky.org</title>
-<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/star-pink.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="app">
-  <div id="hud">
-    <div id="hud-chips">
-      <span class="chip level-chip"><img class="ic" src="assets/icons/star.png" alt=""> سطح <b id="level-val">۱</b><span class="xp-bar"><span id="bar-level" style="width:0%"></span></span></span>
-      <span class="chip"><img class="ic" src="assets/icons/coin.png" alt=""> <b id="coins-val">۲۰</b></span>
-      <span class="chip"><span id="mood-val"><img class="ic" src="assets/icons/face-happy.png" alt=""> شاد</span></span>
-      <span class="chip" id="cake-count"></span>
-      <button class="chip mute-btn" id="leaderboard-btn" title="رکوردها و افتخارات"><img class="ic" src="assets/icons/trophy.png" alt=""></button>
-      <button class="chip mute-btn" id="settings-btn" title="تنظیمات"><img class="ic" src="assets/icons/gear.png" alt=""></button>
-    </div>
-    <span id="hud-title">آستولفو <img class="ic" src="assets/icons/star-pink.png" alt=""></span>
-  </div>
+<div class="app" id="app">
+  <div class="room-wrap" id="roomWrap">
+    <div class="room" id="room">
+      <div class="floor-band"></div>
+      <img class="rug-img" id="rug-img" src="assets/props/rug.png" alt="">
+      <div class="lamp-glow" id="lamp-glow"></div>
 
-  <div id="meters">
-    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/drumstick.png" alt=""> گرسنگی</span><div class="meter"><div id="bar-hunger" style="width:80%"></div></div><span class="meter-val" id="val-hunger">۸۰/۱۰۰</span></div>
-    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/face-happy.png" alt=""> شادی</span><div class="meter"><div id="bar-happiness" style="width:80%"></div></div><span class="meter-val" id="val-happiness">۸۰/۱۰۰</span></div>
-    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/bolt.png" alt=""> انرژی</span><div class="meter"><div id="bar-energy" style="width:80%"></div></div><span class="meter-val" id="val-energy">۸۰/۱۰۰</span></div>
-    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/duck.png" alt=""> تمیزی</span><div class="meter"><div id="bar-cleanliness" style="width:80%"></div></div><span class="meter-val" id="val-cleanliness">۸۰/۱۰۰</span></div>
-    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/heart.png" alt=""> محبت</span><div class="meter"><div id="bar-affection" style="width:0%"></div></div><span class="meter-val" id="val-affection">۰/۲۰</span></div>
-  </div>
-
-  <div id="stage-wrap">
-    <canvas id="stage" width="720" height="560"></canvas>
-    <div id="speech-bubble"></div>
-    <div id="coin-float"></div>
-    <div id="minigame-overlay">
-      <div id="minigame-top"><span><img class="ic" src="assets/icons/sparkle.png" alt=""> <small>امتیاز</small> <b id="minigame-score">۰</b></span><span><img class="ic" src="assets/icons/clock.png" alt=""> <b id="minigame-time">۳۰</b></span><button id="minigame-exit" title="خروج از بازی"><img class="ic" src="assets/icons/x.png" alt=""></button></div>
-      <div id="minigame-instructions">ستاره‌ها رو بگیر! ۳۰ ثانیه!</div>
-      <canvas id="minigame-canvas" width="720" height="560"></canvas>
-    </div>
-  </div>
-
-  <div id="actions">
-    <button class="act-btn" data-action="feed"><img class="ic-lg" src="assets/icons/cake.png" alt=""><small>غذا</small></button>
-    <button class="act-btn" data-action="play"><img class="ic-lg" src="assets/icons/gamepad.png" alt=""><small>بازی</small></button>
-    <button class="act-btn" data-action="sleep"><img class="ic-lg" src="assets/icons/moon.png" alt=""><small>خواب</small></button>
-    <button class="act-btn" data-action="clean"><img class="ic-lg" src="assets/icons/duck.png" alt=""><small>حموم</small></button>
-    <button class="act-btn" data-action="shop"><img class="ic-lg" src="assets/icons/bag.png" alt=""><small>فروشگاه</small></button>
-    <button class="act-btn" data-action="quests"><img class="ic-lg" src="assets/icons/trophy.png" alt=""><small>ماموریت</small></button>
-  </div>
-
-  <div id="chat-box">
-    <div id="chat-log-wrap">
-      <div id="chat-log">
-        <div class="msg astolfo">یاهو! سلام! من آستولفوم — باهام حرف بزن یا نازم کن!</div>
+      <div class="prop" id="p-window" title="پنجره">
+        <img class="win-img win-closed" id="win-closed" src="assets/props/window-closed.png" alt="">
+        <img class="win-img win-open" id="win-open" src="assets/props/window-open.png" alt="" style="display:none">
       </div>
-      <div id="chat-scrollbar" aria-hidden="true"><div id="chat-scrollbar-thumb"></div></div>
-    </div>
-    <div id="chat-row">
-      <input id="chat-input" type="text" placeholder="به آستولفو چیزی بگو..." autocomplete="off">
-      <button id="chat-send">بفرست</button>
-    </div>
-  </div>
+      <div class="curtain l"></div><div class="curtain r"></div>
+      <div id="fairy-lights"></div>
 
-  <footer>آستولفو — شوالیه‌ی تو <img class="ic" src="assets/icons/star-pink.png" alt=""></footer>
-</div>
+      <img class="prop" id="p-shelf" src="assets/props/shelf.png" alt="قفسه">
+      <img class="prop" id="p-books" src="assets/props/books.png" alt="کتاب‌ها">
+      <img class="prop" id="p-plant" src="assets/props/plant.png" alt="گلدان">
 
-<div id="sleep-veil" aria-hidden="true"></div>
-<div id="sleep-fx" aria-hidden="true"><div id="sleep-note" class="sleep-note"><img class="ic" src="assets/icons/moon.png" alt=""> خوابه... بزن بیدارش کن</div><div id="sleep-bubble"></div></div>
-
-<div class="popup" id="feed-menu">
-  <div class="popup-card">
-    <button class="close" data-close="feed-menu"><img class="ic" src="assets/icons/x.png" alt=""></button>
-    <h2><img class="ic" src="assets/icons/cake.png" alt=""> چی بدم بخوره؟</h2>
-    <div class="menu-row">
-      <button class="menu-item" data-feed="snack"><img class="ic" src="assets/icons/cookie.png" alt=""> اسنک<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ۵</span></button>
-      <button class="menu-item" data-feed="meal"><img class="ic" src="assets/icons/meal.png" alt=""> غذای کامل<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ۱۵</span></button>
-      <button class="menu-item" data-feed="drink"><img class="ic" src="assets/icons/drink.png" alt=""> نوشیدنی<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ۸</span></button>
-    </div>
-    <div class="menu-row">
-      <button class="menu-item" data-feed="cake" id="cake-item"><img class="ic" src="assets/icons/cake.png" alt=""> کیک<br><span class="price">از فروشگاه</span></button>
-      <button class="menu-item" data-feed="tea" id="tea-item"><img class="ic" src="assets/icons/tea.png" alt=""> چای حبابی<br><span class="price">از فروشگاه</span></button>
-      <button class="menu-item" data-feed="cookie" id="cookie-item"><img class="ic" src="assets/icons/starcookie.png" alt=""> کوکی ستاره‌ای<br><span class="price">از فروشگاه</span></button>
-    </div>
-    <div class="menu-row">
-      <button class="menu-item" data-feed="milk" id="milk-item"><img class="ic" src="assets/icons/milk.png" alt=""> شیر توت‌فرنگی<br><span class="price">از فروشگاه</span></button>
-      <button class="menu-item" data-feed="candy" id="candy-item"><img class="ic" src="assets/icons/candy.png" alt=""> آبنبات ستاره‌ای<br><span class="price">از فروشگاه</span></button>
-      <button class="menu-item" data-feed="pudding" id="pudding-item"><img class="ic" src="assets/icons/pudding.png" alt=""> پودینگ<br><span class="price">از فروشگاه</span></button>
-    </div>
-  </div>
-</div>
-
-<div class="popup" id="play-menu">
-  <div class="popup-card">
-    <button class="close" data-close="play-menu"><img class="ic" src="assets/icons/x.png" alt=""></button>
-    <h2><img class="ic" src="assets/icons/gamepad.png" alt=""> کدوم بازی؟</h2>
-    <div class="menu-row">
-      <button class="menu-item" data-play="star"><img class="ic" src="assets/icons/sparkle.png" alt=""> ستاره‌بگیر<br><span class="price">بهترین: <span id="best-star">۰</span> ستاره</span></button>
-      <button class="menu-item" data-play="memory"><img class="ic" src="assets/icons/heart.png" alt=""> حافظه<br><span class="price">بهترین: <span id="best-memory">—</span> حرکت</span></button>
-      <button class="menu-item" data-play="timing"><img class="ic" src="assets/icons/clock.png" alt=""> ضربه‌ی دقیق<br><span class="price">بهترین: <span id="best-timing">۰</span> امتیاز</span></button>
-    </div>
-    <div class="menu-row">
-      <button class="menu-item" data-play="ball" id="ball-item"><img class="ic" src="assets/icons/ball.png" alt=""> توپ‌بازی<br><span class="price">توپ رو از فروشگاه بخر</span></button>
-      <button class="menu-item" data-play="plush" id="plush-item"><img class="ic" src="assets/icons/plush.png" alt=""> بغل خرگوشی<br><span class="price">عروسک رو از فروشگاه بخر</span></button>
-      <button class="menu-item" data-play="wand" id="wand-item"><img class="ic" src="assets/icons/wand.png" alt=""> چوبدستی جادویی<br><span class="price">چوبدستی رو از فروشگاه بخر</span></button>
-    </div>
-  </div>
-</div>
-
-<div class="popup" id="memory-modal">
-  <div class="popup-card">
-    <button class="close" data-close="memory-modal"><img class="ic" src="assets/icons/x.png" alt=""></button>
-    <h2><img class="ic" src="assets/icons/heart.png" alt=""> حافظه — جفت‌ها رو پیدا کن!</h2>
-    <div id="memory-grid"></div>
-    <p id="memory-status" class="game-status"></p>
-  </div>
-</div>
-
-<div class="popup" id="timing-modal">
-  <div class="popup-card">
-    <button class="close" data-close="timing-modal"><img class="ic" src="assets/icons/x.png" alt=""></button>
-    <h2><img class="ic" src="assets/icons/clock.png" alt=""> ضربه‌ی دقیق</h2>
-    <p class="game-status">وقتی نشانگر روی نوار طلاییه، دکمه رو بزن! ۱۰ دور.</p>
-    <div id="timing-bar"><div id="timing-zone"></div><div id="timing-marker"></div></div>
-    <div id="timing-row"><span>دور <b id="timing-round">۰/۱۰</b></span><span>امتیاز <b id="timing-score">۰</b></span></div>
-    <button class="menu-item timing-tap" id="timing-tap">بزن!</button>
-    <p id="timing-status" class="game-status"></p>
-  </div>
-</div>
-
-<div class="popup" id="quest-modal">
-  <div class="popup-card">
-    <button class="close" data-close="quest-modal"><img class="ic" src="assets/icons/x.png" alt=""></button>
-    <h2><img class="ic" src="assets/icons/trophy.png" alt=""> ماموریت‌ها</h2>
-    <div id="quest-list"></div>
-  </div>
-</div>
-
-<div class="popup" id="settings-modal">
-  <div class="popup-card">
-    <button class="close" data-close="settings-modal"><img class="ic" src="assets/icons/x.png" alt=""></button>
-    <h2><img class="ic" src="assets/icons/gear.png" alt=""> تنظیمات</h2>
-    <div id="settings-list">
-      <div class="setting-row"><span><img class="ic" src="assets/icons/speaker.png" alt=""> صدا</span><button class="toggle-btn" id="set-mute" data-on="true">روشن</button></div>
-      <div class="setting-row"><span><img class="ic" src="assets/icons/sparkle.png" alt=""> چرخش خودکار سر</span><button class="toggle-btn" id="set-autorotate" data-on="true">روشن</button></div>
-      <div class="setting-row"><span><img class="ic" src="assets/icons/moon.png" alt=""> حرکت کمتر</span><button class="toggle-btn" id="set-reduced" data-on="false">خاموش</button></div>
-      <div class="setting-row"><span><img class="ic" src="assets/icons/clock.png" alt=""> روز / شب</span><button class="toggle-btn" id="set-daynight" data-on="auto">خودکار</button></div>
-    </div>
-  </div>
-</div>
-
-<div class="popup" id="shop-modal">
-  <div class="popup-card">
-    <div class="popup-head">
-      <button class="close" data-close="shop-modal"><img class="ic" src="assets/icons/x.png" alt=""></button>
-      <h2><img class="ic" src="assets/icons/bag.png" alt=""> فروشگاه</h2>
-      <div id="shop-tabs">
-        <button class="shop-tab active" data-shop-cat="all">همه</button>
-        <button class="shop-tab" data-shop-cat="head">سر</button>
-        <button class="shop-tab" data-shop-cat="neck">گردن</button>
-        <button class="shop-tab" data-shop-cat="braid">گیس</button>
-        <button class="shop-tab" data-shop-cat="outfit">لباس</button>
-        <button class="shop-tab" data-shop-cat="room">اتاق</button>
-        <button class="shop-tab" data-shop-cat="toy">اسباب‌بازی</button>
-        <button class="shop-tab" data-shop-cat="food">خوراکی</button>
+      <div class="prop" id="p-clock" title="ساعت">
+        <img class="clock-face" src="assets/props/clock-face.png" alt="">
+        <img class="clock-hand" id="clock-hour" src="assets/props/clock-hand-hour.png" alt="">
+        <img class="clock-hand" id="clock-minute" src="assets/props/clock-hand-minute.png" alt="">
       </div>
-    </div>
-    <div id="shop-list"></div>
-  </div>
-</div>
+      <img class="prop" id="p-poster" src="assets/props/poster.png" alt="پوستر">
+      <img class="prop" id="p-lamp" src="assets/props/lamp-off.png" alt="چراغ">
+      <img class="prop" id="p-plush" src="assets/props/plush-bunny.png" alt="عروسک">
+      <img class="prop" id="p-ball" src="assets/props/ball.png" alt="توپ">
+      <img class="prop" id="p-musicbox" src="assets/props/music-box-closed.png" alt="جعبه موزیک">
+      <img class="prop" id="p-bowl" src="assets/props/bowl-empty.png" alt="کاسه غذا">
+      <img class="prop" id="p-diary" src="assets/props/diary.png" alt="دفتر خاطرات">
+      <img id="falling-book" src="assets/props/books.png" alt="">
 
-<div class="popup" id="leaderboard-modal">
-  <div class="popup-card">
-    <button class="close" data-close="leaderboard-modal"><img class="ic" src="assets/icons/x.png" alt=""></button>
-    <h2><img class="ic" src="assets/icons/trophy.png" alt=""> رکوردها و افتخارات</h2>
-    <h3 class="lb-h">بهترین ستاره‌گیری‌ها</h3>
-    <div id="lb-stars"></div>
-    <h3 class="lb-h">رکوردها</h3>
-    <div id="lb-records" class="lb-grid"></div>
-    <h3 class="lb-h">افتخارات</h3>
-    <div id="lb-achievements"></div>
+      <canvas id="charCanvas" width="390" height="600"></canvas>
+      <div id="sleep-veil"></div>
+      <div id="sleep-z"><span>Z</span><span>Z</span><span>Z</span></div>
+      <div id="droplets"></div>
+      <div id="hearts"></div>
+
+      <div class="hud">
+        <div class="pill"><img src="assets/icons/star-pink.png" alt=""> آستولفو <span id="stage-pill" style="color:var(--muted);font-weight:400">· مرحله ۱</span></div>
+        <div class="pill">روز <span class="px-num" id="day-val">1</span></div>
+        <div class="pill"><img class="coin-ic" src="assets/icons/coin.png" alt=""> <span class="px-num" id="coins-val">20</span></div>
+        <button id="gear-btn" title="تنظیمات"><img src="assets/icons/gear.png" alt="تنظیمات"></button>
+      </div>
+      <div class="rings">
+        <div class="ring-cluster" id="rings-right">
+          <div class="ring" data-meter="energy"><svg viewBox="0 0 36 36"><circle class="ring-bg" cx="18" cy="18" r="15.5"/><circle class="ring-fg" cx="18" cy="18" r="15.5" stroke="#F2B705" stroke-dasharray="97.4" stroke-dashoffset="19.5" stroke-linecap="round"/></svg><img src="assets/icons/bolt.png" alt="انرژی"></div>
+          <div class="ring" data-meter="cleanliness"><svg viewBox="0 0 36 36"><circle class="ring-bg" cx="18" cy="18" r="15.5"/><circle class="ring-fg" cx="18" cy="18" r="15.5" stroke="#7FB8D8" stroke-dasharray="97.4" stroke-dashoffset="19.5" stroke-linecap="round"/></svg><img src="assets/icons/duck.png" alt="تمیزی"></div>
+          <div class="ring" data-meter="affection"><svg viewBox="0 0 36 36"><circle class="ring-bg" cx="18" cy="18" r="15.5"/><circle class="ring-fg" cx="18" cy="18" r="15.5" stroke="#E85D8A" stroke-dasharray="97.4" stroke-dashoffset="77.9" stroke-linecap="round"/></svg><img src="assets/icons/heart.png" alt="محبت"></div>
+        </div>
+        <div class="ring-cluster" id="rings-left">
+          <div class="ring" data-meter="hunger"><svg viewBox="0 0 36 36"><circle class="ring-bg" cx="18" cy="18" r="15.5"/><circle class="ring-fg" cx="18" cy="18" r="15.5" stroke="#E8913A" stroke-dasharray="97.4" stroke-dashoffset="63.3" stroke-linecap="round"/></svg><img src="assets/icons/drumstick.png" alt="گرسنگی"></div>
+          <div class="ring" data-meter="happiness"><svg viewBox="0 0 36 36"><circle class="ring-bg" cx="18" cy="18" r="15.5"/><circle class="ring-fg" cx="18" cy="18" r="15.5" stroke="#F27EA9" stroke-dasharray="97.4" stroke-dashoffset="19.5" stroke-linecap="round"/></svg><img src="assets/icons/face-happy.png" alt="شادی"></div>
+        </div>
+      </div>
+      <div class="rail">
+        <button id="rail-shop" title="فروشگاه"><img src="assets/icons/bag.png" alt="فروشگاه"></button>
+        <button id="rail-quests" title="ماموریت‌ها"><img src="assets/icons/trophy.png" alt="ماموریت‌ها"></button>
+        <button id="rail-diary" title="دفتر خاطرات"><img src="assets/icons/bookshelf.png" alt="دفتر خاطرات"></button>
+      </div>
+      <div id="bubble"></div>
+    </div>
   </div>
+
+  <div class="dock">
+    <button id="dock-feed"><span class="dock-ic"><img src="assets/icons/meal.png" alt=""></span><span>غذا</span></button>
+    <button id="dock-play"><span class="dock-ic"><img src="assets/icons/gamepad.png" alt=""></span><span>بازی</span></button>
+    <button id="dock-wash"><span class="dock-ic"><img src="assets/icons/duck.png" alt=""></span><span>حموم</span></button>
+    <button id="dock-sleep"><span class="dock-ic"><img src="assets/icons/moon.png" alt=""></span><span>خواب</span></button>
+    <button id="dock-praise"><span class="dock-ic"><img src="assets/icons/heart.png" alt=""></span><span>ناز</span></button>
+  </div>
+
+  <div class="chat-row">
+    <button class="mic-btn" id="mic-btn" title="صدا"><img src="assets/icons/speaker.png" alt=""></button>
+    <input id="chat-input" type="text" placeholder="به آستولفو چیزی بگو…" autocomplete="off">
+    <button class="send-btn" id="chat-send" title="ارسال"><svg viewBox="0 0 24 24" fill="none" shape-rendering="crispEdges"><path d="M3 11 L21 3 L14 21 L11 13 Z" fill="#fff"/><path d="M11 13 L21 3" stroke="#F27EA9" stroke-width="1.6"/></svg></button>
+    <div class="quiet-pill">آستولفو خوابه…</div>
+    <button class="wake-pill" id="wake-btn">بیدارش کن</button>
+  </div>
+
+  <div class="today-strip" id="today-strip">
+    <img src="assets/icons/bookshelf.png" alt="">
+    <span id="today-text">روز ۱ — آستولفو تازه به اتاقش اومده!</span>
+    <span class="streak" id="streak-text"></span>
+  </div>
+
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <div class="handle"></div>
+    <header>
+      <h2 id="sheet-title">فروشگاه</h2>
+      <div class="pill coin-pill" id="sheet-coins"><img class="coin-ic" src="assets/icons/coin.png" alt="" style="width:16px;height:16px"> <span class="px-num" id="sheet-coins-val">20</span></div>
+      <button class="x-btn" id="sheet-x" title="بستن"><img src="assets/icons/x.png" alt="بستن"></button>
+    </header>
+    <div class="sheet-body" id="sheet-body">
+
+      <div class="sheet-panel" id="panel-shop">
+        <div class="chips" id="shop-chips"></div>
+        <div class="shop-grid" id="shop-grid"></div>
+      </div>
+
+      <div class="sheet-panel" id="panel-games">
+        <div id="games-list"></div>
+        <div class="sheet-foot" id="games-leaderboard"><img src="assets/icons/trophy.png" alt=""> جدول امتیازها</div>
+      </div>
+
+      <div class="sheet-panel" id="panel-quests"><div id="quests-list"></div></div>
+      <div class="sheet-panel" id="panel-diary"><div id="diary-list"></div></div>
+      <div class="sheet-panel" id="panel-leaderboard"><div id="leaderboard-list"></div></div>
+
+      <div class="sheet-panel" id="panel-food"><div class="food-grid" id="food-grid"></div></div>
+
+      <div class="sheet-panel" id="panel-settings">
+        <div class="s-row"><span>صدا</span><button class="tog on" id="set-mute" aria-label="صدا"></button></div>
+        <div class="s-row"><span>حرکت کمتر</span><button class="tog" id="set-motion" aria-label="حرکت کمتر"></button></div>
+        <div class="s-row"><span>شب / روز اتاق</span><select id="set-daynight"><option value="auto">خودکار (ساعت تهران)</option><option value="day">روز</option><option value="night">شب</option></select></div>
+        <div class="s-row"><span>پشتیبان (JSON)</span><span><button class="mini-btn" id="btn-export">دانلود</button> <button class="mini-btn" id="btn-import" style="background:rgba(74,59,71,.12);color:var(--ink)">بازگردانی</button><input type="file" id="import-file" accept="application/json" style="display:none"></span></div>
+        <div class="s-row"><span>شروع دوباره</span><button class="mini-btn" id="btn-reset" style="background:rgba(74,59,71,.12);color:var(--ink)">ریست</button></div>
+        <button id="install-btn">نصب روی صفحه‌ی اصلی</button>
+      </div>
+
+      <div class="sheet-panel" id="panel-star">
+        <div class="play-area">
+          <div class="status" id="star-status"></div>
+          <canvas id="star-canvas" width="340" height="250"></canvas>
+          <div class="row"><span class="pill">امتیاز <span class="px-num" id="star-score">0</span></span><span class="pill">زمان <span class="px-num" id="star-time">30</span></span></div>
+          <div class="row"><button id="star-start">شروع</button><button class="ghost" id="star-quit">خروج</button></div>
+        </div>
+      </div>
+
+      <div class="sheet-panel" id="panel-memory">
+        <div class="play-area">
+          <div class="status" id="memory-status"></div>
+          <div class="memory-grid" id="memory-grid"></div>
+          <div class="row"><span class="pill">حرکت <span class="px-num" id="memory-moves">0</span></span><button class="ghost" id="memory-quit">خروج</button></div>
+        </div>
+      </div>
+
+      <div class="sheet-panel" id="panel-timing">
+        <div class="play-area">
+          <div class="status" id="timing-status"></div>
+          <div class="timing-track"><div class="timing-zone" id="timing-zone"></div><div class="timing-marker" id="timing-marker" style="left:0%"></div></div>
+          <div class="row"><span class="pill">دور <span class="px-num" id="timing-round">0/10</span></span><span class="pill">امتیاز <span class="px-num" id="timing-score">0</span></span></div>
+          <div class="row"><button id="timing-tap">بزن!</button><button class="ghost" id="timing-quit">خروج</button></div>
+        </div>
+      </div>
+
+      <div class="sheet-panel" id="panel-hideseek">
+        <div class="play-area">
+          <div class="status" id="hideseek-status"></div>
+          <p style="font-size:14px;color:var(--muted)">آستولفو قایم شده! توی اتاق دنبالش بگرد — فقط ۲ شانس داری.</p>
+          <div class="hide-spots">
+            <button data-spot="curtain">پشت پرده‌ی پنجره</button>
+            <button data-spot="shelf">پشت قفسه‌ی کتاب</button>
+            <button data-spot="rug">زیر قالیچه</button>
+          </div>
+          <div class="row"><button class="ghost" id="hideseek-quit">خروج</button></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="chat-sheet-input" id="chat-sheet-input" style="display:none">
+      <input id="chat-input-sheet" type="text" placeholder="به آستولفو چیزی بگو…" autocomplete="off">
+      <button id="chat-send-sheet" title="ارسال"><svg viewBox="0 0 24 24" fill="none" shape-rendering="crispEdges" style="width:22px;height:22px"><path d="M3 11 L21 3 L14 21 L11 13 Z" fill="#fff"/><path d="M11 13 L21 3" stroke="#F27EA9" stroke-width="1.6"/></svg></button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
 </div>
 
 <script src="lines.js"></script>
-<script src="game.js"></script>
+<script src="items-data.js"></script>
 <script src="rig.js"></script>
+<script src="game.js"></script>
 <script src="chat.js"></script>
 <script>
-(function () {
-  'use strict';
-  function $(id) { return document.getElementById(id); }
-
-  // Action buttons
-  document.querySelectorAll('[data-action]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var a = btn.getAttribute('data-action');
-      // v12 (M1): a speech bubble left open behind a modal reads as a
-      // contextually odd line poking out (gp-17: a coins line behind the
-      // play menu). Clear it whenever a modal opens.
-      if (a !== 'sleep' && window.Game.clearBubble) window.Game.clearBubble();
-      if (a === 'feed') { renderFeedCounts(); $('feed-menu').classList.add('show'); }
-      else if (a === 'play') { renderPlayMenu(); $('play-menu').classList.add('show'); }
-      else if (a === 'sleep') { window.Game.toggleSleep(); }
-      else if (a === 'clean') { window.Game.clean(); }
-      else if (a === 'shop') { shopCat = 'all'; document.querySelectorAll('[data-shop-cat]').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-shop-cat') === 'all'); }); renderShop(); $('shop-modal').classList.add('show'); $('shop-modal').querySelector('.popup-card').scrollTop = 0; /* v12 (R4): the modal must always open at the top — gp-35 opened scrolled down with no header/tabs and the first card clipped. */ }
-      else if (a === 'quests') { renderQuests(); $('quest-modal').classList.add('show'); }
-    });
-  });
-  // Play menu: three games + ball toss + plush hug + wand wave (toys from the shop).
-  document.querySelectorAll('[data-play]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var g = btn.getAttribute('data-play');
-      $('play-menu').classList.remove('show');
-      if (g === 'star') { window.Game.startMiniGame(); requestAnimationFrame(sizeMiniGame); }
-      else if (g === 'memory') { window.Game.startMemoryGame(); }
-      else if (g === 'timing') { window.Game.startTimingGame(); }
-      else if (g === 'ball') { window.Game.tossBall(); }
-      else if (g === 'plush') { window.Game.hugPlush(); }
-      else if (g === 'wand') { window.Game.waveWand(); }
-    });
-  });
-  function renderPlayMenu() {
-    var s = window.Game.state;
-    $('best-star').textContent = window.Game.toFaDigits(s.best.star);
-    $('best-memory').textContent = s.best.memory ? window.Game.toFaDigits(s.best.memory) : '—';
-    $('best-timing').textContent = window.Game.toFaDigits(s.best.timing);
-    var ballBtn = $('ball-item');
-    var owned = s.owned.indexOf('ball') !== -1;
-    ballBtn.querySelector('.price').textContent = owned ? 'آماده‌ست! بزن پرتش کن' : 'توپ رو از فروشگاه بخر';
-    ballBtn.disabled = false; // tapping without the ball says so via Game.tossBall
-    var toyLabel = function (id, elId, ready) {
-      var el = $(elId);
-      if (!el) return;
-      el.querySelector('.price').textContent = s.owned.indexOf(id) !== -1 ? ready : 'از فروشگاه بخر';
-    };
-    toyLabel('plush', 'plush-item', 'آماده‌ست! بغلش کن');
-    toyLabel('wand', 'wand-item', 'آماده‌ست! تکونش بده');
-  }
-  // Feed menu: show owned counts for the inventory foods.
-  function renderFeedCounts() {
-    var s = window.Game.state;
-    var setCount = function (id, n) {
-      var el = $(id);
-      if (!el) return;
-      var pr = el.querySelector('.price');
-      if (pr) pr.textContent = n > 0 ? '×' + window.Game.toFaDigits(n) + ' داری' : 'از فروشگاه';
-    };
-    setCount('cake-item', s.cake);
-    setCount('tea-item', s.tea);
-    setCount('cookie-item', s.cookie);
-    setCount('milk-item', s.milk);
-    setCount('candy-item', s.candy);
-    setCount('pudding-item', s.pudding);
-  }
-  // Settings button (HUD) + settings modal.
-  $('settings-btn').addEventListener('click', function () { renderSettings(); $('settings-modal').classList.add('show'); });
-  function renderSettings() {
-    var s = window.Game.state.settings;
-    var muteBtn = $('set-mute');
-    muteBtn.textContent = window.Game.state.muted ? 'خاموش' : 'روشن';
-    muteBtn.setAttribute('data-on', String(!window.Game.state.muted));
-    var ar = $('set-autorotate');
-    ar.textContent = s.autoRotate !== false ? 'روشن' : 'خاموش';
-    ar.setAttribute('data-on', String(s.autoRotate !== false));
-    var rm = $('set-reduced');
-    rm.textContent = s.reducedMotion ? 'روشن' : 'خاموش';
-    rm.setAttribute('data-on', String(!!s.reducedMotion));
-    var dn = $('set-daynight');
-    dn.textContent = s.dayNight === 'day' ? 'همیشه روز' : (s.dayNight === 'night' ? 'همیشه شب' : 'خودکار');
-    dn.setAttribute('data-on', s.dayNight || 'auto');
-  }
-  $('set-mute').addEventListener('click', function () {
-    window.Game.state.muted = !window.Game.state.muted;
-    window.Game.save();
-    if (window.Rig) window.Rig._state.muted = window.Game.state.muted;
-    document.querySelector('.mute-btn img').setAttribute('src',
-      window.Game.state.muted ? 'assets/icons/speaker-off.png' : 'assets/icons/speaker.png');
-    renderSettings();
-  });
-  $('set-autorotate').addEventListener('click', function () {
-    window.Game.setSetting('autoRotate', window.Game.state.settings.autoRotate === false);
-    renderSettings();
-  });
-  $('set-reduced').addEventListener('click', function () {
-    window.Game.setSetting('reducedMotion', !window.Game.state.settings.reducedMotion);
-    renderSettings();
-  });
-  $('set-daynight').addEventListener('click', function () {
-    var cur = window.Game.state.settings.dayNight || 'auto';
-    var next = cur === 'auto' ? 'day' : (cur === 'day' ? 'night' : 'auto');
-    window.Game.setSetting('dayNight', next);
-    renderSettings();
-  });
-  // Quests modal.
-  function renderQuests() {
-    var list = $('quest-list');
-    list.innerHTML = '';
-    window.Game.QUESTS.forEach(function (q) {
-      var qs = window.Game.questState(q.id);
-      var row = document.createElement('div');
-      row.className = 'quest-row' + (qs.claimed ? ' done' : '');
-      var left = document.createElement('div');
-      left.innerHTML = '<b>' + q.fa + '</b><br><span class="quest-desc">' + q.desc + '</span><br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ' + window.Game.toFaDigits(q.reward) + ' · ' + q.progress() + '</span>';
-      var btn = document.createElement('button');
-      btn.className = 'menu-item quest-claim';
-      if (qs.claimed) { btn.textContent = 'گرفته شد'; btn.disabled = true; }
-      else if (qs.done) {
-        btn.innerHTML = '<img class="ic" src="assets/icons/check.png" alt=""> بگیر!';
-        btn.addEventListener('click', function () {
-          if (window.Game.claimQuest(q.id)) renderQuests();
-        });
-      } else { btn.textContent = 'در حال انجام'; btn.disabled = true; }
-      row.appendChild(left);
-      row.appendChild(btn);
-      list.appendChild(row);
-    });
-  }
-  // Memory + timing modal wiring (the X buttons close via data-close; the
-  // game itself also closes the modal on completion).
-  $('timing-tap').addEventListener('click', function () { window.Game.timingTap(); });
-  document.querySelectorAll('[data-close]').forEach(function (btn) {
-    btn.addEventListener('click', function () { $(btn.getAttribute('data-close')).classList.remove('show'); });
-  });
-  document.querySelectorAll('.popup').forEach(function (p) {
-    p.addEventListener('click', function (e) { if (e.target === p) p.classList.remove('show'); });
-  });
-  document.querySelectorAll('[data-feed]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      if (window.Game.feed(btn.getAttribute('data-feed'))) $('feed-menu').classList.remove('show');
-    });
-  });
-  $('sleep-veil').addEventListener('click', function () { window.Game.wake(); });
-
-  // Leaderboard modal (real local records only — no fake rivals).
-  $('leaderboard-btn').addEventListener('click', function () { renderLeaderboard(); $('leaderboard-modal').classList.add('show'); });
-  function renderLeaderboard() {
-    var s = window.Game.state, r = s.records || {};
-    var fa = window.Game.toFaDigits;
-    // (1) Top-5 star rounds.
-    var stars = $('lb-stars');
-    var top = (r.starTop || []).slice(0, 5);
-    if (!top.length) {
-      stars.innerHTML = '<p class="lb-empty">هنوز رکوردی نیست — ستاره بگیر!</p>';
-    } else {
-      var html = '<table class="lb-table"><tbody>';
-      top.forEach(function (row, i) {
-        var cls = i === 0 ? 'rank-gold' : (i === 1 ? 'rank-silver' : (i === 2 ? 'rank-bronze' : ''));
-        html += '<tr class="' + cls + '"><td>' + fa(i + 1) + '</td><td>' + fa(row.score) + ' ستاره</td><td>' + row.date + '</td></tr>';
-      });
-      stars.innerHTML = html + '</tbody></table>';
-    }
-    // (2) Records grid.
-    var starBest = top.length ? top[0].score : (s.best.star || 0);
-    var memBest = r.memoryBest ? r.memoryBest.moves : (s.best.memory || null);
-    var timBest = r.timingBest ? r.timingBest.score : (s.best.timing || 0);
-    var recs = [
-      ['بهترین سطح', fa(r.levelBest || s.level)],
-      ['بهترین ستاره', fa(starBest) + ' ستاره'],
-      ['بهترین حافظه', memBest ? fa(memBest) + ' حرکت' : '—'],
-      ['بهترین ضربه‌ی دقیق', fa(timBest) + ' امتیاز'],
-      ['کل سکه‌های به‌دست‌آمده', fa(r.coinsTotal || 0)],
-      ['کل نازها', fa(r.totalPets || 0)],
-      ['کل غذاها', fa(r.totalFeeds || 0)],
-      ['طولانی‌ترین رگه‌ی ناز', fa(r.petStreakBest || 0) + ' روز'],
-      ['طولانی‌ترین رگه‌ی غذا', fa(r.feedStreakBest || 0) + ' روز']
-    ];
-    $('lb-records').innerHTML = recs.map(function (c) {
-      return '<div class="lb-cell"><span class="lb-num">' + c[1] + '</span><span class="lb-label">' + c[0] + '</span></div>';
-    }).join('');
-    // (3) Achievements: unlocked (gold star + date) vs locked (grey, no date).
-    var unlocked = {};
-    (r.achievements || []).forEach(function (a) { unlocked[a.id] = a; });
-    $('lb-achievements').innerHTML = window.Game.ACHIEVEMENTS.map(function (a) {
-      var u = unlocked[a.id];
-      if (u) return '<div class="lb-ach unlocked"><img class="ic lb-star-ic" src="assets/icons/star.png" alt=""><div><b>' + a.fa + '</b><br><span class="lb-desc">' + a.desc + ' · ' + u.date + '</span></div></div>';
-      return '<div class="lb-ach locked"><img class="ic lb-star-ic lb-star-off" src="assets/icons/star.png" alt=""><div><b>' + a.fa + '</b><br><span class="lb-desc">' + a.desc + '</span></div></div>';
-    }).join('');
-  }
-
-  // Shop rendering (v11: three wear slots + toys + consumable counts)
-  var shopCat = 'all';
-  document.querySelectorAll('[data-shop-cat]').forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      shopCat = tab.getAttribute('data-shop-cat');
-      document.querySelectorAll('[data-shop-cat]').forEach(function (t) { t.classList.toggle('active', t === tab); });
-      renderShop();
-    });
-  });
-  function shopVisible(item) {
-    if (shopCat === 'all') return true;
-    if (shopCat === 'toy') return !!item.toy;
-    if (shopCat === 'food') return !!item.consumable;
-    if (shopCat === 'room') return item.slot === 'room' || item.slot === 'decor';
-    return item.slot === shopCat;
-  }
-  function renderShop() {
-    var list = $('shop-list');
-    list.innerHTML = '';
-    window.Game.SHOP.forEach(function (item) {
-      if (!shopVisible(item)) return;
-      var owned = window.Game.state.owned.indexOf(item.id) !== -1;
-      var locked = window.Game.state.level < item.level;
-      var worn = false, decorOn = false;
-      if (item.slot === 'decor') decorOn = (window.Game.state.gear.decor || []).indexOf(item.id) !== -1;
-      else if (item.slot) worn = window.Game.state.gear[item.slot] === item.id;
-      var row = document.createElement('div');
-      row.className = 'menu-row';
-      var b = document.createElement('button');
-      b.className = 'menu-item' + (locked ? ' locked' : '');
-      var label = '<img class="ic" src="assets/icons/' + item.icon + '" alt=""> ' + item.fa + '<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ' + window.Game.toFaDigits(item.price) + '</span>';
-      if (locked) label += '<br><span><img class="ic" src="assets/icons/lock.png" alt=""> سطح ' + window.Game.toFaDigits(item.level) + '</span>';
-      else if (item.slot === 'room' && worn) label += '<br><span><img class="ic" src="assets/icons/check.png" alt=""> فعال — بزن خاموشش کن</span>';
-      else if (item.slot === 'decor' && owned) label += '<br><span><img class="ic" src="assets/icons/check.png" alt=""> ' + (decorOn ? 'روشن — بزن خاموشش کن' : 'خاموش — بزن روشنش کن') + '</span>';
-      else if (worn) label += '<br><span><img class="ic" src="assets/icons/check.png" alt=""> پوشیده — بزن درش بیار</span>';
-      else if (owned && item.slot) label += '<br><span><img class="ic" src="assets/icons/check.png" alt=""> خریده شده — بزن بپوشه</span>';
-      else if (owned && item.toy) label += '<br><span><img class="ic" src="assets/icons/check.png" alt=""> داریش — از منوی بازی باهاش بازی کن</span>';
-      else if (item.consumable) {
-        var n = window.Game.state[item.invKey || 'cake'] || 0;
-        if (n > 0) label += '<br><span><img class="ic" src="assets/icons/cake.png" alt="">×' + window.Game.toFaDigits(n) + ' داری</span>';
-      }
-      else if (item.price > window.Game.state.coins) label += '<br><span class="cant-afford">سکه کافی نیست</span>';
-      b.innerHTML = label;
-      b.disabled = locked;
-      b.addEventListener('click', function () {
-        if (window.Game.buy(item.id)) renderShop();
-      });
-      row.appendChild(b);
-      list.appendChild(row);
-    });
-  }
-
-  // Chat wiring (chat.js provides window.Chat.send)
-  function sendChat() {
-    var input = $('chat-input');
-    var text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    if (window.Chat) window.Chat.send(text);
-  }
-  $('chat-send').addEventListener('click', sendChat);
-  $('chat-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendChat(); });
-  // While the on-screen keyboard is open, shrink the stage so Astolfo stays visible.
-  $('chat-input').addEventListener('focus', function () {
-    document.body.classList.add('typing');
-    $('chat-box').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  });
-  $('chat-input').addEventListener('blur', function () { document.body.classList.remove('typing'); });
-
-  // Mini-game canvas sizing + taps
-  var mgc = $('minigame-canvas');
-  function sizeMiniGame() {
-    var r = mgc.getBoundingClientRect();
-    mgc.width = Math.max(320, Math.round(r.width * (window.devicePixelRatio || 1)));
-    mgc.height = Math.max(320, Math.round(r.height * (window.devicePixelRatio || 1)));
-  }
-  window.addEventListener('resize', sizeMiniGame);
-  mgc.addEventListener('pointerdown', function (e) { window.Game.miniGameTap(e.clientX, e.clientY); });
-  $('minigame-exit').addEventListener('click', function () { window.Game.quitMiniGame(); });
-
-  // Boot
   window.addEventListener('load', function () {
-    sizeMiniGame();
-    window.Game.render();
-    window.Game.startIdleLines();
-    if (window.Rig) {
-      window.Rig.init();
-      // fx3 boot restore (audit F1/F2): the equipped accessory and the
-      // sleeping state used to be lost on reload — Game.state kept them
-      // but nothing ever handed them back to the rig.
-      // v11: the whole gear set (head/neck/braid) restores, plus settings.
-      if (window.Game.state.gear) window.Rig.setGear(window.Game.state.gear);
-      window.Game.applySettings();
-      if (window.Game.state.sleeping) {
-        document.body.classList.add('sleeping');
-        // v9: the sleep note/bubble live in #sleep-fx and are positioned
-        // over the stage by JS — without this call a reload-while-asleep
-        // leaves them parked at the viewport's top-left corner.
-        if (window.Game.positionSleepFx) window.Game.positionSleepFx();
-        // v9: re-show the good-night bubble on reload too, BEFORE Rig.sleep
-        // spawns the first Zs (spawnZzz clamps each Z below the bubble, so
-        // the bubble must already carry .show when they spawn).
-        if (window.Game.showSleepBubble) window.Game.showSleepBubble(window.Game.L('sleep', {}) + ' <span dir="ltr">Zzz</span>', 6000);
-        window.Rig.sleep(true);
-      }
-    }
+    if (window.Game) window.Game.init();
     if (window.Chat) window.Chat.init();
-    // v11: a greeting bubble on load (once a day it is the time-of-day
-    // greeting; otherwise a normal idle line) — the stage greets first.
-    setTimeout(function () {
-      if (!window.Game.state.sleeping && window.Game.sayBubble) {
-        window.Game.sayBubble(window.Game.idleLine());
-      }
-    }, 2500);
-    requestAnimationFrame(function () { window.Game.miniGameFrame(0.016); });
   });
-})();
 </script>
 </body>
 </html>

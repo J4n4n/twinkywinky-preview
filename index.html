@@ -32,7 +32,7 @@
     <div id="speech-bubble"></div>
     <div id="coin-float"></div>
     <div id="minigame-overlay">
-      <div id="minigame-top"><span><img class="ic" src="assets/icons/sparkle.png" alt=""> <b id="minigame-score">۰</b></span><span><img class="ic" src="assets/icons/clock.png" alt=""> <b id="minigame-time">۳۰</b></span><button id="minigame-exit" title="خروج از بازی"><img class="ic" src="assets/icons/x.png" alt=""></button></div>
+      <div id="minigame-top"><span><img class="ic" src="assets/icons/sparkle.png" alt=""> <small>امتیاز</small> <b id="minigame-score">۰</b></span><span><img class="ic" src="assets/icons/clock.png" alt=""> <b id="minigame-time">۳۰</b></span><button id="minigame-exit" title="خروج از بازی"><img class="ic" src="assets/icons/x.png" alt=""></button></div>
       <div id="minigame-instructions">ستاره‌ها رو بگیر! ۳۰ ثانیه!</div>
       <canvas id="minigame-canvas" width="720" height="560"></canvas>
     </div>
@@ -135,6 +135,7 @@
       if (locked) label += '<br><span><img class="ic" src="assets/icons/lock.png" alt=""> سطح ' + window.Game.toFaDigits(item.level) + '</span>';
       else if (owned && !item.consumable) label += '<br><span><img class="ic" src="assets/icons/check.png" alt=""> خریده شده — بزن بپوشه</span>';
       else if (item.consumable && window.Game.state.cake > 0) label += '<br><span><img class="ic" src="assets/icons/cake.png" alt="">×' + window.Game.toFaDigits(window.Game.state.cake) + ' داری</span>';
+      else if (item.price > window.Game.state.coins) label += '<br><span class="cant-afford">سکه کافی نیست</span>';
       b.innerHTML = label;
       b.disabled = locked;
       b.addEventListener('click', function () {

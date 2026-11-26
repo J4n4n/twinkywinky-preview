@@ -197,6 +197,7 @@ body.sleeping #sleep-fx { display: block; }
   color: var(--ink-body);
   text-align: center;
   line-height: 1.6;
+  white-space: nowrap; /* v10: one line everywhere — no orphaned «کن» */
 }
 .sleep-note .ic { width: 22px; height: 22px; vertical-align: -4px; }
 /* sleep bubble: same pixel style as #speech-bubble, but ABOVE the veil and
@@ -234,18 +235,18 @@ body.sleeping #sleep-fx { display: block; }
    stage itself stays dimmed and tap-to-wake. */
 body.sleeping #hud, body.sleeping #meters, body.sleeping #actions,
 body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41; }
-/* fx3 (audit F7) + v9: floating Zzz above the veil — white bold Z with a
-   hard black shadow, rising and fading; spawned by Rig.spawnZzz into
-   #sleep-fx (above the veil, near the head). v9: the old 2.6s animation
-   was fully opaque for only ~0.4s of its life and spawns came every 2.2s,
-   so screenshots kept catching zero visible Zs. Now fully opaque until
-   60% of a 2.8s life, spawned every 1.4s (two at sleep start), so at
-   least one bright Z is always on screen. */
+/* fx3 (audit F7) + v9: floating Zzz above the veil — spawned by
+   Rig.spawnZzz into #sleep-fx (above the veil, near the head). v9: the
+   old 2.6s animation was fully opaque for only ~0.4s of its life and
+   spawns came every 2.2s, so screenshots kept catching zero visible Zs.
+   Now fully opaque until 60% of a 2.8s life, spawned every 1.4s (two at
+   sleep start), so at least one bright Z is always on screen.
+   v10: the Z is a PIXEL Z (box-shadow grid, see rig.js pixelZShadows) —
+   no font glyph at all, so nothing smooth/anti-aliased shows. The span
+   is one 6px cell; the grid is drawn by its box-shadow. */
 .zzz-float {
   position: absolute;
-  font: bold 34px monospace;
-  color: #fff;
-  text-shadow: 3px 3px 0 #1a1a1a;
+  width: 6px; height: 6px;
   pointer-events: none;
   animation: zzz-rise 2.8s ease-out forwards;
 }
@@ -273,13 +274,15 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
 .act-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
 .act-btn:disabled { opacity: .45; }
 
-/* popups (feed menu / shop) */
+/* popups (feed menu / shop) — centred on desktop; bottom-sheet only on
+   phones (see the phone media query). v10: the old flex-end stuck the
+   modal to the bottom edge on desktop. */
 .popup {
   position: fixed; inset: 0;
   background: rgba(26, 26, 26, .5);
   z-index: 50;
   display: none;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
 }
 .popup.show { display: flex; }
@@ -311,7 +314,11 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
 }
 .menu-item:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
 .menu-item .price { color: var(--gold-text); font-size: 12px; }
-.menu-item.locked { opacity: .65; }
+/* v10: locked cards stay READABLE — warm-grey background, #555 text, full
+   opacity. The old .65 x :disabled .45 stacked to ~25% ghost text. */
+.menu-item.locked { opacity: 1; background: #efe6e0; color: #555; }
+.menu-item.locked:disabled { opacity: 1; }
+.menu-item .cant-afford { color: #b3261e; }
 .menu-item:disabled { opacity: .45; }
 
 /* mini-game overlay — overflow hidden is the safety net: the canvas must
@@ -332,7 +339,10 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
    (score) and stars spawned clipped in half behind the timer. */
 #minigame-top > span { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 8px; }
 /* v9: the score «۰» at 15px read as a stray dot next to the star. 20px digits. */
+/* v10: a «امتیاز» label sits next to the number — the Persian ۰ alone
+   still reads as a dot even at 20px. */
 #minigame-score, #minigame-time { font-size: 20px; }
+#minigame-top small { font-size: 13px; }
 #minigame-exit { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 6px; cursor: pointer; font-family: inherit; line-height: 1; }
 #minigame-exit:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
 #minigame-exit .ic { width: 18px; height: 18px; vertical-align: -3px; }
@@ -458,6 +468,12 @@ footer { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink
   #stage-wrap { width: 100%; max-width: none; }
   /* smaller bubble on the short phone stage so its pointer clears the hair */
   #speech-bubble { font-size: 12px; padding: 5px 9px; top: 4px; }
+  /* v10: the sleep note is one line on the phone — no orphaned «کن» —
+     and smaller, so it stops covering the neck/chest. */
+  .sleep-note { font-size: 14px; padding: 8px 10px; }
+  .sleep-note .ic { width: 18px; height: 18px; vertical-align: -3px; }
+  /* v10: bottom-sheet modals only on phones; desktop centres them. */
+  .popup { align-items: flex-end; }
   #actions { grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .act-btn { padding: 6px 1px 5px; }
   .act-btn .ic-lg { width: 26px; height: 26px; }

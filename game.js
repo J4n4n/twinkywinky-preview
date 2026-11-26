@@ -260,7 +260,7 @@
     addXP(2);
     save(); render();
     if (window.Rig) window.Rig.bath();
-    sayBubble('حموم! حباب‌ها! تمیز شدم!');
+    sayBubble('آخیش! چه حبابایی، برق افتادم!');
     return true;
   }
 
@@ -276,6 +276,8 @@
 
   function toggleSleep() {
     if (state.sleeping) { wake(); return; }
+    // v10: the old speech bubble stayed dimmed behind the sleep bubble.
+    clearBubble();
     state.sleeping = true;
     save(); render();
     document.body.classList.add('sleeping');
@@ -385,8 +387,11 @@
     var r = 24 * dpr;
     // Spawn fully inside the playfield (inset by the star half-width) so no
     // star is ever born clipped in half behind the timer/score pills.
+    // v10: born fully inside the canvas too (centre r+8) — the old y=-r-4
+    // slid stars in from behind the HUD row, so on the phone a star's tip
+    // was clipped under the score pill.
     var x = r + 8 + Math.random() * Math.max(1, (c.width - 2 * (r + 8)));
-    miniGame.stars.push({ x: x, y: -r - 4, vy: (120 + Math.random() * 90) * dpr, r: r });
+    miniGame.stars.push({ x: x, y: r + 8, vy: (120 + Math.random() * 90) * dpr, r: r });
     setTimeout(spawnLoop, 650 + Math.random() * 350);
   }
   function miniGameFrame(dt) {

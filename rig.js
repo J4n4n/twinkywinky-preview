@@ -180,6 +180,27 @@
       });
     }
   }
+  // v10: soap bubbles as PIXEL art — a stepped circle with a dark-blue
+  // outline and a light-blue fill, so they read on the cream wall and the
+  // white hoodie. The old smooth white ring was nearly invisible there.
+  function drawPixelBubble(x, y, r) {
+    var cell = Math.max(2, Math.round(r / 5));
+    var rows = Math.ceil((2 * r) / cell), i, dy, hw;
+    ctx.fillStyle = '#1e5f8a'; // outline: same stepped shape, 1 cell larger
+    for (i = -1; i <= rows; i++) {
+      dy = (i + 0.5) * cell - r;
+      hw = Math.sqrt(Math.max(0, (r + cell) * (r + cell) - dy * dy));
+      ctx.fillRect(Math.round(x - hw), Math.round(y - r + i * cell), Math.round(2 * hw), cell);
+    }
+    ctx.fillStyle = '#a8d8f0'; // light-blue fill
+    for (i = 0; i < rows; i++) {
+      dy = (i + 0.5) * cell - r;
+      hw = Math.sqrt(Math.max(0, r * r - dy * dy));
+      ctx.fillRect(Math.round(x - hw), Math.round(y - r + i * cell), Math.round(2 * hw), cell);
+    }
+    ctx.fillStyle = '#ffffff'; // white pixel highlight, upper-left
+    ctx.fillRect(Math.round(x - r * 0.45), Math.round(y - r * 0.55), Math.max(2, cell), Math.max(2, cell));
+  }
   // Zzz as DOM spans inside #sleep-fx, ABOVE the veil (fx3, audit F7; v9):
   // the canvas 'Z' particles were invisible — the stage is dimmed to 45%
   // AND the 55%-opaque veil sits on top, crushing a purple Z to near zero
@@ -189,6 +210,30 @@
   // screenshots kept catching zero visible Zs. Now they spawn into
   // #sleep-fx at the head's screen position (from the stage rect) and
   // stay fully opaque until 60% of the animation (see style.css).
+  // v10: the Z is a PIXEL Z, not a smooth font glyph — a 6x5 box-shadow
+  // grid (white cells, 1-cell black outline), so it matches the pixel art
+  // instead of clashing with it. The span itself is one 6px cell; every
+  // other cell is a box-shadow offset from it.
+  var ZGRID = ['11111', '00001', '00010', '00100', '01000', '11111'];
+  var ZCELL = 6;
+  function pixelZShadows() {
+    var filled = {}, outline = {}, sh = [], k, r, c, dr, dc, nk, p;
+    for (r = 0; r < ZGRID.length; r++)
+      for (c = 0; c < 5; c++)
+        if (ZGRID[r].charAt(c) === '1') filled[r + ',' + c] = 1;
+    for (k in filled) {
+      p = k.split(','); r = +p[0]; c = +p[1];
+      for (dr = -1; dr <= 1; dr++) for (dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        nk = (r + dr) + ',' + (c + dc);
+        if (!filled[nk] && r + dr >= 0 && r + dr < ZGRID.length && c + dc >= 0 && c + dc < 5) outline[nk] = 1;
+      }
+    }
+    for (k in outline) { p = k.split(','); sh.push((+p[1] * ZCELL) + 'px ' + (+p[0] * ZCELL) + 'px 0 #1a1a1a'); }
+    for (k in filled) { p = k.split(','); sh.push((+p[1] * ZCELL) + 'px ' + (+p[0] * ZCELL) + 'px 0 #fff'); }
+    return sh.join(',');
+  }
+  var lastZzzX = null; // v10: consecutive Zs must not land on top of each other
   function spawnZzz() {
     var fx = document.getElementById('sleep-fx');
     var wrap = document.getElementById('stage-wrap');
@@ -196,7 +241,7 @@
     var r = wrap.getBoundingClientRect();
     var z = document.createElement('span');
     z.className = 'zzz-float';
-    z.textContent = 'Z';
+    z.style.boxShadow = pixelZShadows();
     var top = Math.round(r.top + r.height * (0.18 + Math.random() * 0.10));
     var rise = 70;
     /* v9: while the sleep bubble is shown it sits at the stage top, and on
@@ -210,7 +255,13 @@
       if (top < floor + 4) top = Math.round(floor + 4);
       rise = Math.max(0, Math.min(70, top - floor));
     }
-    z.style.left = Math.round(r.left + r.width * (0.5 + (Math.random() - 0.5) * 0.25)) + 'px';
+    // v10: keep >=40px from the previous Z's x (the two spawn-at-once Zs
+    // used to overlap into one blob on the phone's narrow spawn band).
+    var zx = Math.round(r.left + r.width * (0.5 + (Math.random() - 0.5) * 0.25));
+    for (var t = 0; t < 6 && lastZzzX != null && Math.abs(zx - lastZzzX) < 40; t++)
+      zx = Math.round(r.left + r.width * (0.5 + (Math.random() - 0.5) * 0.25));
+    lastZzzX = zx;
+    z.style.left = zx + 'px';
     z.style.top = top + 'px';
     z.style.setProperty('--zzz-rise', (-rise) + 'px');
     fx.appendChild(z);
@@ -525,7 +576,10 @@
       // exactly like the braids already do.
       if (img.backhair) ctx.drawImage(img.backhair, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
       var headImg = img.head;
-      if (state.sleeping || state.moodSleepy) headImg = img.head_sleepy || headImg;
+      // v10: truly asleep = FULLY closed eyes (head_closed). The half-open
+      // sleepy face is only for the low-energy mood while awake.
+      if (state.sleeping) headImg = img.head_closed || headImg;
+      else if (state.moodSleepy) headImg = img.head_sleepy || headImg;
       else if (eyesClosed) headImg = img.head_closed || headImg;
       if (headImg) ctx.drawImage(headImg, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
       // Blush (head-parented, fades). v7: the asset is now small PIXELATED
@@ -583,12 +637,7 @@
       ctx.save();
       ctx.globalAlpha = Math.min(1, a * 1.5);
       if (p.type === 'heart') { ctx.translate(p.x, p.y); ctx.rotate(p.rot); drawHeart(0, 0, p.size, p.color); }
-      else if (p.type === 'bubble') {
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        ctx.beginPath(); ctx.arc(p.x - p.size * 0.3, p.y - p.size * 0.3, p.size * 0.35, 0, Math.PI * 2); ctx.fill();
-      }
+      else if (p.type === 'bubble') { drawPixelBubble(p.x, p.y, p.size); }
       else if (p.type === 'spark') { drawSpark(p.x, p.y, p.size, p.color, p.rot); }
       ctx.restore();
     }

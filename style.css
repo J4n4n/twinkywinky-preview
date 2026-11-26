@@ -180,6 +180,27 @@ footer .ic { width: 14px; height: 14px; vertical-align: -2px; }
 }
 body.sleeping #sleep-veil { display: flex; }
 body.sleeping #stage-wrap { filter: brightness(.45) saturate(.7); }
+/* fx3 (audit F4): the veil used to swallow every click while sleeping, so
+   the feed/clean/play-while-sleeping refusal lines were unreachable via
+   the UI. The controls stay above the veil (z 41 > 40) and usable; the
+   stage itself stays dimmed and tap-to-wake. */
+body.sleeping #hud, body.sleeping #meters, body.sleeping #actions,
+body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41; }
+/* fx3 (audit F7): floating Zzz above the veil — white bold Z with a hard
+   black shadow, rising and fading; spawned by Rig.spawnZzz while asleep. */
+.zzz-float {
+  position: absolute;
+  font: bold 30px monospace;
+  color: #fff;
+  text-shadow: 2px 2px 0 #1a1a1a;
+  pointer-events: none;
+  animation: zzz-rise 2.6s ease-out forwards;
+}
+@keyframes zzz-rise {
+  0% { opacity: 0; transform: translateY(0); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-70px); }
+}
 
 /* action bar — 5 buttons; 3x2 grid on phones so nothing squeezes */
 #actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }

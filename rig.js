@@ -1,5 +1,9 @@
 /* Rigged 2D pixel character — Spine/Live2D-style, hand-built on canvas.
-   Layers (1600x1600 source space): backhair -> body -> head -> blush -> accessories.
+   Layers (1600x1600 source space): body -> head group (backhair under head,
+   then head, blush, accessories). The backhair IS head-parented: it is the
+   bob flare behind the head, so it must rotate/lean with the head — drawn
+   in body space it stayed behind while the head leaned away, opening a
+   cream gap and leaving a detached pink chunk (fx2).
    Bone hierarchy: body root -> neck pivot (800,515) -> head (+braids).
    Head motion: spring-damped physics. Idle bob = translate only, never stretch.
    Pixel style: imageSmoothingEnabled=false, integer draw positions, no recoloring. */
@@ -69,7 +73,7 @@
   // Blink cycle.
   var blinkAt = 0, blinkUntil = 0;
 
-  // Particles: {type:'heart'|'bubble'|'spark'|'zzz', x,y,vx,vy,life,maxLife,size,rot,vr}
+  // Particles: {type:'heart'|'bubble'|'spark', x,y,vx,vy,life,maxLife,size,rot,vr}
   var particles = [];
   var zzzTimer = null, bathTimer = null;
 
@@ -128,7 +132,14 @@
     return false;
   }
   function inBody(x, y) {
-    return x >= 303 && x <= 1296 && y >= 0 && y <= 1599;
+    // Two boxes from the measured body.png silhouette (fx3, audit F11):
+    // the old single box (x 303-1296, y 0-1599) had a vacuous y >= 0, so
+    // taps on the window, poster, shelf, checker floor and the empty wall
+    // beside the torso all poked him. Torso core + arms/hips flare, both
+    // cut off at the platform top (source y 1448) so floor taps don't poke.
+    if (x >= 460 && x <= 1140 && y >= 490 && y <= 1448) return true; // torso core
+    if (x >= 330 && x <= 1270 && y >= 1050 && y <= 1448) return true; // arms + hips flare
+    return false;
   }
 
   // ---------- particles ----------
@@ -169,12 +180,20 @@
       });
     }
   }
+  // Zzz as DOM spans inside #sleep-veil, ABOVE the veil (fx3, audit F7):
+  // the canvas 'Z' particles were invisible — the stage is dimmed to 45%
+  // AND the 55%-opaque veil sits on top, crushing a purple Z to near zero
+  // contrast. A white bold Z with a black shadow on the dark veil reads.
   function spawnZzz() {
-    particles.push({
-      type: 'zzz', x: toCanvasX(950) + (Math.random() - 0.5) * 20, y: toCanvasY(120),
-      vx: 8 + Math.random() * 8, vy: -(14 + Math.random() * 8),
-      life: 0, maxLife: 2.6, size: 20 + Math.random() * 8, rot: 0, vr: 0, color: '#8b7fd4'
-    });
+    var veil = document.getElementById('sleep-veil');
+    if (!veil) return;
+    var z = document.createElement('span');
+    z.className = 'zzz-float';
+    z.textContent = 'Z';
+    z.style.left = (30 + Math.random() * 40) + '%';
+    z.style.top = (24 + Math.random() * 12) + '%';
+    veil.appendChild(z);
+    setTimeout(function () { if (z.parentNode) z.parentNode.removeChild(z); }, 2800);
   }
 
   function drawHeart(x, y, s, color) {
@@ -209,7 +228,7 @@
     state.squash = 1; // squash-and-stretch: visible in a still frame
     state.blushTarget = 1;
     setTimeout(function () { state.blushTarget = 0; }, 1600);
-    // Spring impulse: lean toward the touch point (small — the bob seam hides only for small angles).
+    // Spring impulse: lean toward the touch point.
     var dirx = Math.max(-1, Math.min(1, (hx - toCanvasX(800)) / 200));
     spring.angVel += dirx * 1.6 + (Math.random() - 0.5) * 0.2;
     spring.dxVel += dirx * 60;
@@ -441,7 +460,7 @@
     spring.dx += spring.dxVel * dt;
     spring.dyVel += (-k * (spring.dy - spring.dyTarget) - c * spring.dyVel) * dt;
     spring.dy += spring.dyVel * dt;
-    // Clamp so the bob seam never shows.
+    // Clamp the lean so the head never over-rotates.
     spring.angle = Math.max(-0.10, Math.min(0.10, spring.angle));
     spring.dx = Math.max(-14, Math.min(14, spring.dx));
     spring.dy = Math.max(-10, Math.min(12, spring.dy));
@@ -462,8 +481,6 @@
       // Fallback: flat avatar, still bobs + blinks via overlay only.
       ctx.drawImage(img.flat, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
     } else {
-      // Backhair (body space, under body).
-      if (img.backhair) ctx.drawImage(img.backhair, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
       // Body (torso + arms + shorts).
       if (img.body) ctx.drawImage(img.body, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
 
@@ -474,6 +491,14 @@
       var sq = state.squash;
       if (sq > 0.01) ctx.scale(1 + 0.09 * sq, 1 - 0.10 * sq);
       ctx.translate(-Math.round(px), -Math.round(py));
+      // Backhair (head-parented, under the head): the bob flare must move
+      // with the head. In body space it stayed put while the head leaned,
+      // opening a cream wedge and leaving a detached pink chunk (fx2).
+      // At rest its overlap with the body is 0px, so drawing it after the
+      // body changes nothing there; at full lean only a few px of its tip
+      // can fall on the shoulder, reading as hair in front of the hoodie,
+      // exactly like the braids already do.
+      if (img.backhair) ctx.drawImage(img.backhair, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
       var headImg = img.head;
       if (state.sleeping || state.moodSleepy) headImg = img.head_sleepy || headImg;
       else if (eyesClosed) headImg = img.head_closed || headImg;
@@ -537,10 +562,6 @@
         ctx.beginPath(); ctx.arc(p.x - p.size * 0.3, p.y - p.size * 0.3, p.size * 0.35, 0, Math.PI * 2); ctx.fill();
       }
       else if (p.type === 'spark') { drawSpark(p.x, p.y, p.size, p.color, p.rot); }
-      else if (p.type === 'zzz') {
-        ctx.fillStyle = p.color; ctx.font = 'bold ' + Math.round(p.size) + 'px monospace';
-        ctx.fillText('Z', p.x, p.y);
-      }
       ctx.restore();
     }
   }
@@ -610,14 +631,24 @@
     var chips = document.getElementById('hud-chips') || hud;
     if (hud) {
       var b = document.createElement('button');
-      b.className = 'chip mute-btn'; b.innerHTML = '<img class="ic" src="assets/icons/speaker.png" alt="">';
+      b.className = 'chip mute-btn';
       b.title = 'صدا';
+      // fx3 (audit F3): restore the saved mute state — init used to
+      // hardcode the speaker icon, so a reload always un-muted even
+      // though Game.state.muted was still true in storage.
+      if (window.Game && window.Game.state && window.Game.state.muted) state.muted = true;
+      b.innerHTML = state.muted
+        ? '<img class="ic" src="assets/icons/speaker-off.png" alt="">'
+        : '<img class="ic" src="assets/icons/speaker.png" alt="">';
       b.addEventListener('click', function () {
         state.muted = !state.muted;
         b.innerHTML = state.muted
           ? '<img class="ic" src="assets/icons/speaker-off.png" alt="">'
           : '<img class="ic" src="assets/icons/speaker.png" alt="">';
-        if (window.Game && window.Game.state) window.Game.state.muted = state.muted;
+        if (window.Game && window.Game.state) {
+          window.Game.state.muted = state.muted;
+          if (window.Game.save) window.Game.save();
+        }
       });
       chips.appendChild(b);
     }

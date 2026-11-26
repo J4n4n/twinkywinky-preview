@@ -177,7 +177,14 @@
     sizeMiniGame();
     window.Game.render();
     window.Game.startIdleLines();
-    if (window.Rig) window.Rig.init();
+    if (window.Rig) {
+      window.Rig.init();
+      // fx3 boot restore (audit F1/F2): the equipped accessory and the
+      // sleeping state used to be lost on reload — Game.state kept them
+      // but nothing ever handed them back to the rig.
+      if (window.Game.state.equipped) window.Rig.setAccessory(window.Game.state.equipped);
+      if (window.Game.state.sleeping) { window.Rig.sleep(true); document.body.classList.add('sleeping'); }
+    }
     if (window.Chat) window.Chat.init();
     requestAnimationFrame(function () { window.Game.miniGameFrame(0.016); });
   });

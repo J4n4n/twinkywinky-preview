@@ -61,7 +61,7 @@
   // Live tick every 60s.
   function tickDecay() {
     if (state.sleeping) {
-      state.stats.energy = clamp(state.stats.energy + 2.4, 0, 100); // +~14/min while asleep
+      state.stats.energy = clamp(state.stats.energy + 2.4, 0, 100); // +2.4 per 60s tick while asleep
     } else {
       state.stats.hunger = clamp(state.stats.hunger - 0.5, 30, 100);
       state.stats.happiness = clamp(state.stats.happiness - 0.3, 30, 100);
@@ -189,7 +189,9 @@
   };
   function feed(kind) {
     if (state.sleeping) { sayBubble('Zzz... خوابم... بعداً غذا می‌خورم.'); return false; }
-    if (Date.now() - lastFeedAt < 2000) return false;
+    // fx3 (audit F6): same silent-cooldown trap as clean() — the old
+    // success bubble stayed up and the refused feed looked like it worked.
+    if (Date.now() - lastFeedAt < 2000) { sayBubble('یه لحظه صبر کن، هنوز دارم می‌جوم!'); return false; }
     var f = FOOD[kind];
     if (!f) return false;
     if (f.inventory) {
@@ -211,7 +213,9 @@
   var lastCleanAt = 0;
   function clean() {
     if (state.sleeping) { sayBubble('Zzz...'); return false; }
-    if (Date.now() - lastCleanAt < 10000) return false;
+    // fx3 (audit F5): a silent return left the stale success bubble
+    // showing, so the user thought the second bath worked. Say so instead.
+    if (Date.now() - lastCleanAt < 10000) { sayBubble('همین الان حموم کردم! یه کم صبر کن.'); return false; }
     lastCleanAt = Date.now();
     addStat('cleanliness', 22); addStat('happiness', 3);
     addXP(2);
@@ -426,6 +430,9 @@
   // ---------- render HUD ----------
   function render() {
     var m = mood();
+    // fx3 (audit F8): the sleepy face never showed — setSleepy() had zero
+    // callers. The low-energy mood now drives head_sleepy.png.
+    if (window.Rig) window.Rig.setSleepy(m === 'sleepy');
     var setBar = function (id, v) {
       var el = document.getElementById(id);
       if (!el) return;

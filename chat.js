@@ -155,12 +155,22 @@
         typing.remove();
         var reply = LOCAL_FALLBACK[Math.floor(Math.random() * LOCAL_FALLBACK.length)];
         var el = appendMsg('astolfo', '');
-        typewriter(el, reply);
+        // fx3 (audit F9): the fallback path never awarded the chat coin or
+        // the head reaction — same done-callback as the success path.
+        typewriter(el, reply, function () {
+          awardChatCoin();
+          if (window.Rig) window.Rig.chatReact();
+        });
         appendMsg('sys', '(چت آفلاین شد — ولی آستولفو هنوز اینجاست!)');
       })
       .finally(function () {
         if (sendBtn) sendBtn.disabled = false;
-        if (inputEl) { inputEl.disabled = false; inputEl.focus(); }
+        if (inputEl) {
+          inputEl.disabled = false;
+          // fx3 (audit F13): refocusing after every send re-pops the phone
+          // keyboard. Only refocus where there is a fine pointer (desktop).
+          if (window.matchMedia('(pointer:fine)').matches) inputEl.focus();
+        }
       });
   }
 

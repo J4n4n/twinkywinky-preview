@@ -29,7 +29,7 @@
   var VOICE = {
     pet: ['v03_pet.mp3', 'v12_tickle.mp3', 'v10_cute.mp3', 'v11_love.mp3', 'v01_yahoo.mp3'],
     eat: ['v06_best.mp3', 'v01_yahoo.mp3'],
-    celebrate: ['v01_yahoo.mp3', 'v02_giggle.mp3'],
+    celebrate: ['v01_yahoo.mp3', 'v02_giggle.mp3', 'v09_knight.mp3'],
     chat: ['v02_giggle.mp3', 'v08_adventure.mp3'],
     poke: ['v07_huh.mp3']
   };
@@ -180,20 +180,41 @@
       });
     }
   }
-  // Zzz as DOM spans inside #sleep-veil, ABOVE the veil (fx3, audit F7):
+  // Zzz as DOM spans inside #sleep-fx, ABOVE the veil (fx3, audit F7; v9):
   // the canvas 'Z' particles were invisible — the stage is dimmed to 45%
   // AND the 55%-opaque veil sits on top, crushing a purple Z to near zero
   // contrast. A white bold Z with a black shadow on the dark veil reads.
+  // v9: the old spans lived in #sleep-veil at %-of-viewport positions and
+  // were fully opaque for only ~0.4s of a 2.6s life with 2.2s spawns, so
+  // screenshots kept catching zero visible Zs. Now they spawn into
+  // #sleep-fx at the head's screen position (from the stage rect) and
+  // stay fully opaque until 60% of the animation (see style.css).
   function spawnZzz() {
-    var veil = document.getElementById('sleep-veil');
-    if (!veil) return;
+    var fx = document.getElementById('sleep-fx');
+    var wrap = document.getElementById('stage-wrap');
+    if (!fx || !wrap) return;
+    var r = wrap.getBoundingClientRect();
     var z = document.createElement('span');
     z.className = 'zzz-float';
     z.textContent = 'Z';
-    z.style.left = (30 + Math.random() * 40) + '%';
-    z.style.top = (24 + Math.random() * 12) + '%';
-    veil.appendChild(z);
-    setTimeout(function () { if (z.parentNode) z.parentNode.removeChild(z); }, 2800);
+    var top = Math.round(r.top + r.height * (0.18 + Math.random() * 0.10));
+    var rise = 70;
+    /* v9: while the sleep bubble is shown it sits at the stage top, and on
+       short phone stages the head (hence the Z spawn band) is right under
+       it — a rising Z used to drift up through the bubble text. Clamp the
+       spawn below the bubble's bottom edge and cap the rise so a Z never
+       crosses it. Once the bubble hides, the full 70px rise applies. */
+    var bub = document.getElementById('sleep-bubble');
+    if (bub && bub.classList.contains('show')) {
+      var floor = bub.getBoundingClientRect().bottom + 6;
+      if (top < floor + 4) top = Math.round(floor + 4);
+      rise = Math.max(0, Math.min(70, top - floor));
+    }
+    z.style.left = Math.round(r.left + r.width * (0.5 + (Math.random() - 0.5) * 0.25)) + 'px';
+    z.style.top = top + 'px';
+    z.style.setProperty('--zzz-rise', (-rise) + 'px');
+    fx.appendChild(z);
+    setTimeout(function () { if (z.parentNode) z.parentNode.removeChild(z); }, 3000);
   }
 
   function drawHeart(x, y, s, color) {
@@ -263,8 +284,12 @@
   function sleep(on) {
     state.sleeping = on;
     if (on) {
+      // v9: two Zs at once + 1.4s spawns against a 2.8s life, so at least
+      // one fully-opaque Z is always on screen (the old 2.2s spawns left
+      // gaps where no Z was visible at all).
+      spawnZzz(); spawnZzz();
       if (zzzTimer) clearInterval(zzzTimer);
-      zzzTimer = setInterval(function () { if (state.sleeping) spawnZzz(); }, 2200);
+      zzzTimer = setInterval(function () { if (state.sleeping) spawnZzz(); }, 1400);
     } else if (zzzTimer) { clearInterval(zzzTimer); zzzTimer = null; }
   }
 
@@ -512,8 +537,11 @@
         ctx.drawImage(img.blush, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
         ctx.globalAlpha = 1;
       }
-      // Accessories (head-parented).
-      if (state.accessory === 'glasses' && img.glasses) {
+      // Accessories (head-parented). v9: glasses hide while sleeping —
+      // the old opaque-white lenses sat on the closed eyes and the
+      // sleepy face was unreadable (the new pixel glasses are transparent,
+      // but the frames still cross the closed eyes, so they stay off).
+      if (state.accessory === 'glasses' && img.glasses && !state.sleeping) {
         ctx.drawImage(img.glasses,
           Math.round(ox + GLASSES.x * S), Math.round(oy + GLASSES.y * S),
           Math.round(GLASSES.w * S), Math.round(GLASSES.h * S));

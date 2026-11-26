@@ -46,7 +46,6 @@ body {
 .menu-item .ic { width: 24px; height: 24px; vertical-align: -4px; }
 .menu-item .price .ic { width: 14px; height: 14px; vertical-align: -2px; }
 #minigame-top .ic { width: 20px; height: 20px; vertical-align: -4px; }
-#sleep-veil .ic { width: 26px; height: 26px; vertical-align: -5px; }
 .popup-card h2 .ic { width: 24px; height: 24px; vertical-align: -4px; }
 footer .ic { width: 14px; height: 14px; vertical-align: -2px; }
 .close .ic { width: 18px; height: 18px; vertical-align: -2px; }
@@ -164,42 +163,97 @@ footer .ic { width: 14px; height: 14px; vertical-align: -2px; }
 }
 #coin-float.show { opacity: 1; transform: translateY(-18px); }
 
-/* sleep dim */
+/* sleep dim — a bare dim layer now. The sleep UI (note, bubble, Zzz) lives
+   in #sleep-fx ABOVE it: children of #stage-wrap can never escape its
+   brightness filter or sit above the veil, so the note used to overflow
+   the stage's left edge and the bubble/Zzz were crushed dim. */
 #sleep-veil {
   position: fixed; inset: 0;
   background: rgba(20, 10, 30, .55);
   z-index: 40;
   display: none;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 18vh;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
   cursor: pointer;
 }
-body.sleeping #sleep-veil { display: flex; }
+body.sleeping #sleep-veil { display: block; }
 body.sleeping #stage-wrap { filter: brightness(.45) saturate(.7); }
+/* sleep UI layer, ABOVE the veil (z 41), positioned over the stage by JS.
+   pointer-events: none so taps fall through to the veil (tap-to-wake). */
+#sleep-fx { position: fixed; inset: 0; z-index: 41; pointer-events: none; display: none; }
+body.sleeping #sleep-fx { display: block; }
+/* the sleep note: a centred pixel box CONFINED inside the stage (JS sets
+   left/top/max-width from the stage rect). The old veil text was a bare
+   flex item on the full-screen veil — it drifted off the stage and «کن»
+   landed on the meters card. */
+.sleep-note {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink-body);
+  text-align: center;
+  line-height: 1.6;
+}
+.sleep-note .ic { width: 22px; height: 22px; vertical-align: -4px; }
+/* sleep bubble: same pixel style as #speech-bubble, but ABOVE the veil and
+   positioned over the stage top by JS. The old in-stage bubble was dimmed
+   twice (stage filter + veil) and its «...Zzz» bidi order flipped. */
+#sleep-bubble {
+  position: absolute;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.7;
+  text-align: center;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+#sleep-bubble.show { opacity: 1; }
+#sleep-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -11px;
+  left: 50%;
+  margin-left: -8px;
+  border: 8px solid transparent;
+  border-top-color: var(--ink);
+  border-bottom: 0;
+}
 /* fx3 (audit F4): the veil used to swallow every click while sleeping, so
    the feed/clean/play-while-sleeping refusal lines were unreachable via
    the UI. The controls stay above the veil (z 41 > 40) and usable; the
    stage itself stays dimmed and tap-to-wake. */
 body.sleeping #hud, body.sleeping #meters, body.sleeping #actions,
 body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41; }
-/* fx3 (audit F7): floating Zzz above the veil — white bold Z with a hard
-   black shadow, rising and fading; spawned by Rig.spawnZzz while asleep. */
+/* fx3 (audit F7) + v9: floating Zzz above the veil — white bold Z with a
+   hard black shadow, rising and fading; spawned by Rig.spawnZzz into
+   #sleep-fx (above the veil, near the head). v9: the old 2.6s animation
+   was fully opaque for only ~0.4s of its life and spawns came every 2.2s,
+   so screenshots kept catching zero visible Zs. Now fully opaque until
+   60% of a 2.8s life, spawned every 1.4s (two at sleep start), so at
+   least one bright Z is always on screen. */
 .zzz-float {
   position: absolute;
-  font: bold 30px monospace;
+  font: bold 34px monospace;
   color: #fff;
-  text-shadow: 2px 2px 0 #1a1a1a;
+  text-shadow: 3px 3px 0 #1a1a1a;
   pointer-events: none;
-  animation: zzz-rise 2.6s ease-out forwards;
+  animation: zzz-rise 2.8s ease-out forwards;
 }
 @keyframes zzz-rise {
   0% { opacity: 0; transform: translateY(0); }
-  15% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-70px); }
+  10% { opacity: 1; }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(var(--zzz-rise, -70px)); }
 }
 
 /* action bar — 5 buttons; 3x2 grid on phones so nothing squeezes */
@@ -277,6 +331,8 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
    TOP of the playfield — the old bare text read as a microscopic dot
    (score) and stars spawned clipped in half behind the timer. */
 #minigame-top > span { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 8px; }
+/* v9: the score «۰» at 15px read as a stray dot next to the star. 20px digits. */
+#minigame-score, #minigame-time { font-size: 20px; }
 #minigame-exit { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 6px; cursor: pointer; font-family: inherit; line-height: 1; }
 #minigame-exit:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
 #minigame-exit .ic { width: 18px; height: 18px; vertical-align: -3px; }

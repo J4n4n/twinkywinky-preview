@@ -62,7 +62,8 @@
   <footer>آستولفو — شوالیه‌ی تو <img class="ic" src="assets/icons/star-pink.png" alt=""></footer>
 </div>
 
-<div id="sleep-veil"><img class="ic" src="assets/icons/moon.png" alt=""> خوابه... بزن بیدارش کن</div>
+<div id="sleep-veil" aria-hidden="true"></div>
+<div id="sleep-fx" aria-hidden="true"><div id="sleep-note" class="sleep-note"><img class="ic" src="assets/icons/moon.png" alt=""> خوابه... بزن بیدارش کن</div><div id="sleep-bubble"></div></div>
 
 <div class="popup" id="feed-menu">
   <div class="popup-card">
@@ -183,7 +184,18 @@
       // sleeping state used to be lost on reload — Game.state kept them
       // but nothing ever handed them back to the rig.
       if (window.Game.state.equipped) window.Rig.setAccessory(window.Game.state.equipped);
-      if (window.Game.state.sleeping) { window.Rig.sleep(true); document.body.classList.add('sleeping'); }
+      if (window.Game.state.sleeping) {
+        document.body.classList.add('sleeping');
+        // v9: the sleep note/bubble live in #sleep-fx and are positioned
+        // over the stage by JS — without this call a reload-while-asleep
+        // leaves them parked at the viewport's top-left corner.
+        if (window.Game.positionSleepFx) window.Game.positionSleepFx();
+        // v9: re-show the good-night bubble on reload too, BEFORE Rig.sleep
+        // spawns the first Zs (spawnZzz clamps each Z below the bubble, so
+        // the bubble must already carry .show when they spawn).
+        if (window.Game.showSleepBubble) window.Game.showSleepBubble('شب بخیر! <span dir="ltr">Zzz</span>', 6000);
+        window.Rig.sleep(true);
+      }
     }
     if (window.Chat) window.Chat.init();
     requestAnimationFrame(function () { window.Game.miniGameFrame(0.016); });

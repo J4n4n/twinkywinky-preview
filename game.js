@@ -147,7 +147,45 @@
 
   // ---------- speech bubble ----------
   var bubbleEl = null, bubbleTimer = null;
+  // v9: the sleep bubble lives in #sleep-fx ABOVE the veil, positioned
+  // over the stage by positionSleepFx(). The in-stage bubble sits under
+  // the veil (dimmed twice) while asleep, and a trailing Latin «Zzz»
+  // flipped to the wrong end of the RTL line — the Zzz gets its own
+  // dir="ltr" span so the order reads «شب بخیر! Zzz».
+  var sleepBubbleEl = null, sleepBubbleTimer = null;
+  function positionSleepFx() {
+    var wrap = document.getElementById('stage-wrap');
+    var note = document.getElementById('sleep-note');
+    var bub = document.getElementById('sleep-bubble');
+    if (!wrap || !note || !bub) return;
+    var r = wrap.getBoundingClientRect();
+    note.style.left = Math.round(r.left + r.width / 2) + 'px';
+    note.style.top = Math.round(r.top + r.height / 2) + 'px';
+    note.style.maxWidth = Math.round(r.width * 0.92) + 'px';
+    bub.style.left = Math.round(r.left + r.width / 2) + 'px';
+    bub.style.top = Math.round(r.top + 6) + 'px';
+    bub.style.maxWidth = Math.round(r.width * 0.88) + 'px';
+  }
+  function showSleepBubble(html, ms) {
+    if (!sleepBubbleEl) sleepBubbleEl = document.getElementById('sleep-bubble');
+    if (!sleepBubbleEl) return;
+    sleepBubbleEl.innerHTML = html;
+    sleepBubbleEl.classList.add('show');
+    if (sleepBubbleTimer) clearTimeout(sleepBubbleTimer);
+    sleepBubbleTimer = setTimeout(function () { sleepBubbleEl.classList.remove('show'); }, ms || 6000);
+  }
+  function hideSleepBubble() {
+    if (sleepBubbleTimer) { clearTimeout(sleepBubbleTimer); sleepBubbleTimer = null; }
+    if (sleepBubbleEl) sleepBubbleEl.classList.remove('show');
+  }
   function sayBubble(text, ms) {
+    if (state.sleeping) {
+      // While asleep, route the line to the sleep bubble above the veil;
+      // a leading Zzz gets its own LTR span so the bidi order holds.
+      var html = text.replace(/^Zzz(\.\.\.)?/, '<span dir="ltr">Zzz$1</span>');
+      showSleepBubble(html, ms || 4000);
+      return;
+    }
     if (!bubbleEl) bubbleEl = document.getElementById('speech-bubble');
     if (!bubbleEl) return;
     bubbleEl.textContent = text;
@@ -162,6 +200,7 @@
     if (bubbleTimer) { clearTimeout(bubbleTimer); bubbleTimer = null; }
     if (!bubbleEl) bubbleEl = document.getElementById('speech-bubble');
     if (bubbleEl) bubbleEl.classList.remove('show');
+    hideSleepBubble();
   }
 
   // ---------- coins ----------
@@ -239,9 +278,13 @@
     if (state.sleeping) { wake(); return; }
     state.sleeping = true;
     save(); render();
-    if (window.Rig) window.Rig.sleep(true);
     document.body.classList.add('sleeping');
-    sayBubble('شب بخیر... Zzz...', 6000);
+    positionSleepFx();
+    showSleepBubble('شب بخیر! <span dir="ltr">Zzz</span>', 6000);
+    /* v9: Rig.sleep AFTER the bubble is shown — spawnZzz clamps each Z
+       below the bubble, and the first two Zs spawn inside Rig.sleep, so
+       the bubble must already carry .show when they spawn. */
+    if (window.Rig) window.Rig.sleep(true);
   }
   function wake() {
     if (!state.sleeping) return;
@@ -249,6 +292,7 @@
     save(); render();
     if (window.Rig) window.Rig.sleep(false);
     document.body.classList.remove('sleeping');
+    hideSleepBubble();
     addStat('energy', 5);
     sayBubble('یاهو! خواب خوبی بود!');
   }
@@ -474,13 +518,15 @@
   // ---------- init ----------
   applyOfflineDecay();
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { applyOfflineDecay(); render(); } });
+  // Keep the sleep UI glued to the stage if the viewport moves while asleep.
+  window.addEventListener('resize', function () { if (state.sleeping) positionSleepFx(); });
 
   window.Game = {
     state: state, save: save, render: render, mood: mood, MOOD_FA: MOOD_FA,
     feed: feed, clean: clean, pet: pet, toggleSleep: toggleSleep, wake: wake,
     buy: buy, equip: equip, SHOP: SHOP, FOOD: FOOD,
     startMiniGame: startMiniGame, miniGameTap: miniGameTap, endMiniGame: endMiniGame, quitMiniGame: quitMiniGame,
-    miniGameFrame: miniGameFrame,
+    miniGameFrame: miniGameFrame, positionSleepFx: positionSleepFx, showSleepBubble: showSleepBubble,
     idleLine: idleLine, sayBubble: sayBubble, clearBubble: clearBubble, startIdleLines: startIdleLines,
     addCoins: addCoins, addXP: addXP, toFaDigits: toFaDigits, xpForNext: xpForNext
   };

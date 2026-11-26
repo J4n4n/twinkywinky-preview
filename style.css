@@ -86,7 +86,7 @@ footer .ic { width: 14px; height: 14px; vertical-align: -2px; }
 /* stat meters — one column, each bar its own colour, numeric values */
 #meters { display: flex; flex-direction: column; gap: 8px; background: #fff; border: 3px solid var(--ink); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); padding: 10px 12px; }
 #meters .meter-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-#meters .meter-label { width: 76px; flex: none; color: var(--ink-body); font-weight: 800; }
+#meters .meter-label { width: 76px; flex: none; color: var(--ink-body); font-weight: 800; white-space: nowrap; }
 #meters .meter { flex: 1; height: 12px; background: var(--bar-bg); border: 2px solid var(--ink); border-radius: 0; overflow: hidden; }
 #meters .meter > div { height: 100%; transition: width .5s ease; }
 #meters .meter.low > div { background: var(--bar-low); }
@@ -169,13 +169,16 @@ footer .ic { width: 14px; height: 14px; vertical-align: -2px; }
    the stage's left edge and the bubble/Zzz were crushed dim. */
 #sleep-veil {
   position: fixed; inset: 0;
-  background: rgba(20, 10, 30, .55);
+  background: rgba(20, 10, 30, .42); /* v12: was .55 — with the stage
+    filter at .45 the face was barely visible (gp-05/gp-06). Lighter
+    veil + lighter stage filter keep it clearly "night" while the
+    closed-eye face still reads. */
   z-index: 40;
   display: none;
   cursor: pointer;
 }
 body.sleeping #sleep-veil { display: block; }
-body.sleeping #stage-wrap { filter: brightness(.45) saturate(.7); }
+body.sleeping #stage-wrap { filter: brightness(.62) saturate(.85); }
 /* sleep UI layer, ABOVE the veil (z 41), positioned over the stage by JS.
    pointer-events: none so taps fall through to the veil (tap-to-wake). */
 #sleep-fx { position: fixed; inset: 0; z-index: 41; pointer-events: none; display: none; }
@@ -186,7 +189,10 @@ body.sleeping #sleep-fx { display: block; }
    landed on the meters card. */
 .sleep-note {
   position: absolute;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -100%); /* v12: was translate(-50%,-50%) —
+    the note was CENTRED on the stage, over her chest/neck (gp-05).
+    JS now sets top = stage bottom - 8px, so the note's BOTTOM edge
+    sits there and the box rises over the floor band, below her feet. */
   background: #fff;
   border: 3px solid var(--ink);
   border-radius: 0;
@@ -244,9 +250,13 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
    v10: the Z is a PIXEL Z (box-shadow grid, see rig.js pixelZShadows) —
    no font glyph at all, so nothing smooth/anti-aliased shows. The span
    is one 6px cell; the grid is drawn by its box-shadow. */
+/* v11: the Z is a CANVAS painted with pixel rects (see rig.js paintPixelZ)
+   — its intrinsic size is the Z itself (22-27px wide), so the span must
+   NOT force width/height 6px (that squashed the old box-shadow grid). */
 .zzz-float {
   position: absolute;
-  width: 6px; height: 6px;
+  width: auto; height: auto;
+  image-rendering: pixelated;
   pointer-events: none;
   animation: zzz-rise 2.8s ease-out forwards;
 }
@@ -257,8 +267,8 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
   100% { opacity: 0; transform: translateY(var(--zzz-rise, -70px)); }
 }
 
-/* action bar — 5 buttons; 3x2 grid on phones so nothing squeezes */
-#actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+/* action bar — v11: 6 buttons (quests joined); 6-across on phones too */
+#actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 .act-btn {
   border: 3px solid var(--ink);
   background: #fff;
@@ -288,6 +298,8 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
 .popup.show { display: flex; }
 .popup-card {
   width: 100%; max-width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
   background: var(--pink-bg2);
   border: 3px solid var(--ink);
   border-radius: 0;
@@ -296,7 +308,22 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
   margin: 0 8px 8px;
 }
 .popup-card h2 { font-size: 16px; margin-bottom: 10px; text-align: center; }
-.popup-card .close { float: left; border: none; background: none; font-size: 20px; cursor: pointer; color: var(--ink-soft); }
+.popup-card .close { float: left; border: none; background: none; font-size: 20px; cursor: pointer; color: var(--ink-soft); position: sticky; top: 0; z-index: 2; }
+/* v12: sticky modal header (shop). gp-35: on the phone the shop modal
+   opened scrolled down — no title, no tabs, the first card half-clipped
+   at the top edge and the X overlapping it. The close + title + tabs
+   now live in one sticky block with a solid background, so they stay
+   visible while the list scrolls under them; the card's scroll position
+   is also reset to 0 whenever the shop opens (index.html). */
+.popup-head {
+  position: sticky; top: -14px; z-index: 3;
+  background: var(--pink-bg2);
+  margin: -14px -14px 10px; padding: 12px 14px 10px;
+  border-bottom: 3px solid var(--ink);
+}
+.popup-head h2 { margin-bottom: 8px; }
+.popup-head #shop-tabs { margin-bottom: 0; }
+.popup-head .close { position: static; }
 .menu-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .menu-item {
   flex: 1;
@@ -328,7 +355,10 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
   z-index: 20;
   display: none;
   flex-direction: column;
-  background: rgba(255, 233, 243, .85);
+  background: rgba(255, 233, 243, .30); /* v12: was .85 — an 85%-opaque
+    pale scrim over the WHOLE stage washed the character to a ghost
+    (gp-04). The overlay still tints the game area for contrast; the
+    character (canvas UNDER the overlay) now reads. */
   border-radius: 0;
   overflow: hidden;
 }
@@ -341,7 +371,9 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
 /* v9: the score «۰» at 15px read as a stray dot next to the star. 20px digits. */
 /* v10: a «امتیاز» label sits next to the number — the Persian ۰ alone
    still reads as a dot even at 20px. */
-#minigame-score, #minigame-time { font-size: 20px; }
+/* v11: the ۰ glyph itself is tiny in Tahoma — 26px + 900 weight so it
+   matches the timer digits' visual weight (Gemini round 10). */
+#minigame-score, #minigame-time { font-size: 26px; font-weight: 900; line-height: 1; }
 #minigame-top small { font-size: 13px; }
 #minigame-exit { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 6px; cursor: pointer; font-family: inherit; line-height: 1; }
 #minigame-exit:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
@@ -449,6 +481,117 @@ body.sleeping #chat-box, body.sleeping footer { position: relative; z-index: 41;
 
 footer { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink-body); padding: 8px 0; background: #fff; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
 
+/* v11: memory-match cards — 3x2 grid. Face-down = pink with a sparkle;
+   flipped = white with the icon. The flip is a visibility swap (no 3D
+   transform — the pixel style stays flat and chunky). */
+#memory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 10px; }
+.memory-card {
+  aspect-ratio: 1;
+  border: 3px solid var(--ink);
+  background: var(--pink-accent);
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+}
+.memory-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.memory-card .memory-back, .memory-card .memory-face {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.memory-card .memory-face { display: none; background: #fff; }
+.memory-card.flipped { background: #fff; }
+.memory-card.flipped .memory-back { display: none; }
+.memory-card.flipped .memory-face { display: flex; }
+.memory-card .memory-face .ic-lg { width: 40px; height: 40px; margin: 0; }
+.game-status { text-align: center; font-weight: 800; font-size: 14px; line-height: 1.7; min-height: 24px; }
+
+/* v11: timing game — a long pixel bar, a gold zone, a black marker that
+   sweeps back and forth, and a big tap button. */
+#timing-bar {
+  position: relative;
+  height: 28px;
+  background: var(--pink-soft);
+  border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  margin: 12px 0;
+  overflow: hidden;
+}
+#timing-zone { position: absolute; top: 0; bottom: 0; background: var(--gold); border-left: 2px solid var(--ink); border-right: 2px solid var(--ink); }
+#timing-marker { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; background: var(--ink); }
+#timing-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; margin-bottom: 10px; }
+.timing-tap { width: 100%; padding: 14px; font-size: 18px; }
+
+/* shop category tabs — ONE row, horizontally scrollable. v12: the old
+   flex-wrap left «خوراکی» alone on a second row (gp-08/gp-14/gp-27,
+   desktop AND phone). Tabs never shrink (flex: none) so every label
+   stays whole; the row scrolls instead of wrapping. */
+#shop-tabs { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; margin-bottom: 10px; scrollbar-width: none; }
+#shop-tabs::-webkit-scrollbar { display: none; }
+.shop-tab {
+  flex: none;
+  border: 3px solid var(--ink); background: #fff; border-radius: 0;
+  box-shadow: 2px 2px 0 var(--ink); padding: 4px 6px; /* v12: was 4px 10px —
+    the 8 tabs overflowed the 446px row by 30px and «خوراکی» sat half-clipped
+    (gp-08). 6px sides save 64px, so all 8 fit on desktop; on the phone the
+    row still scrolls, as it must at 370px wide. */
+  font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+  color: var(--ink-body);
+}
+.shop-tab:active { transform: translate(2px, 2px); box-shadow: none; }
+.shop-tab.active { background: var(--ink); color: #fff; }
+
+/* leaderboard — top-5 table (gold/silver/bronze rows), records grid, achievements */
+.lb-h { font-size: 14px; margin: 12px 0 6px; text-align: right; }
+.lb-empty { text-align: center; font-weight: 800; font-size: 13px; padding: 8px 0; }
+.lb-table { width: 100%; border-collapse: collapse; font-size: 13px; font-weight: 800; }
+.lb-table td { border: 2px solid var(--ink); background: #fff; padding: 6px 8px; text-align: center; }
+.lb-table tr.rank-gold td { background: #ffe98a; }
+.lb-table tr.rank-silver td { background: #e8e8e8; }
+.lb-table tr.rank-bronze td { background: #f2c184; }
+.lb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.lb-cell { border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink); padding: 8px 4px; text-align: center; }
+.lb-num { display: block; font-size: 15px; font-weight: 900; }
+.lb-label { display: block; font-size: 11px; font-weight: 700; color: var(--ink-soft); line-height: 1.5; }
+.lb-ach { display: flex; gap: 8px; align-items: center; border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink); padding: 8px 10px; margin-bottom: 8px; font-size: 13px; line-height: 1.6; }
+.lb-ach.unlocked { background: #fff8d6; }
+.lb-ach.locked { background: #efe6e0; color: #777; }
+.lb-ach .lb-star-ic { width: 20px; height: 20px; flex: none; }
+.lb-ach.locked .lb-star-ic.lb-star-off { filter: grayscale(1); opacity: 0.45; }
+.lb-ach .lb-desc { font-size: 12px; color: var(--ink-soft); }
+
+/* v11: quest rows — text left, claim button right. */
+.quest-row {
+  display: flex; gap: 10px; align-items: center; justify-content: space-between;
+  border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink);
+  padding: 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.7;
+}
+.quest-row.done { background: #efe6e0; }
+.quest-row .quest-desc { color: var(--ink-soft); font-size: 12px; }
+.quest-claim { flex: none; width: 96px; }
+/* v12: a disabled claim button must LOOK disabled, not just be disabled.
+   gp-20: an incomplete quest («به سطح ۳ برس», ۲/۳) showed the same
+   active «بگیر!» button as completed quests. The code already disables
+   it (renderQuests: «در حال انجام», disabled) — but the generic
+   .menu-item:disabled opacity .45 read as a rendering artifact, so now
+   an explicit flat grey: no checkmark, grey fill, grey text. */
+.quest-claim:disabled { background: #efe6e0; color: #777; opacity: 1; cursor: default; box-shadow: 2px 2px 0 #bbb; }
+.quest-row .price { color: var(--gold-text); font-size: 12px; }
+
+/* v11: settings rows — label left, toggle button right. */
+.setting-row {
+  display: flex; gap: 10px; align-items: center; justify-content: space-between;
+  border: 3px solid var(--ink); background: #fff; box-shadow: 3px 3px 0 var(--ink);
+  padding: 10px; margin-bottom: 10px; font-size: 14px; font-weight: 800;
+}
+.toggle-btn {
+  border: 3px solid var(--ink); background: var(--ink); color: #fff;
+  font-family: inherit; font-size: 13px; font-weight: 800;
+  padding: 6px 14px; cursor: pointer; min-width: 84px;
+}
+.toggle-btn[data-on="false"] { background: #fff; color: var(--ink-body); }
+.toggle-btn:active { transform: translate(2px, 2px); }
+
 /* phone: 5-across icon strip (no 3x2 grid hole), compressed stage so the
    whole resting view fits, one-row HUD */
 @media (max-width: 640px) {
@@ -474,7 +617,12 @@ footer { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink
   .sleep-note .ic { width: 18px; height: 18px; vertical-align: -3px; }
   /* v10: bottom-sheet modals only on phones; desktop centres them. */
   .popup { align-items: flex-end; }
-  #actions { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  /* play menu on the phone: let the 3 game cards wrap instead of squeezing
+     into one row (the «ضربه‌ی دقیق» label used to wrap mid-word). */
+  #play-menu .menu-row, #feed-menu .menu-row { flex-wrap: wrap; }
+  #play-menu .menu-item, #feed-menu .menu-item { flex: 1 1 90px; font-size: 12px; }
+  /* v11: 6 action buttons across on phones — tighter padding + smaller icons */
+  #actions { grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .act-btn { padding: 6px 1px 5px; }
   .act-btn .ic-lg { width: 26px; height: 26px; }
   .act-btn small { font-size: 10px; margin-top: 3px; }
@@ -482,6 +630,23 @@ footer { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink
   body.typing #stage-wrap { max-width: 200px; }
   /* the bubble would cover the whole shrunken stage — hide it while typing */
   body.typing #speech-bubble { display: none; }
+}
+
+/* narrow phones (<=500px): the HUD chip row MUST stay on one line in
+   every state (happy, sleeping, all moods) even with the trophy button
+   added — tighter padding/gaps, smaller icons, mood chip ellipsised. */
+@media (max-width: 500px) {
+  #hud { padding: 4px 6px; gap: 4px; }
+  #hud-chips { gap: 4px; flex-wrap: nowrap; }
+  .chip { padding: 2px 5px; font-size: 11px; height: 26px; display: inline-flex; align-items: center; }
+  .chip .ic { width: 14px; height: 14px; vertical-align: -2px; }
+  .mute-btn { padding: 2px 5px; }
+  .mute-btn .ic { width: 14px; height: 14px; }
+  .xp-bar { width: 28px; }
+  #mood-val { display: inline-block; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+  #meters .meter-label { width: 66px; font-size: 11px; }
+  #meters .meter-val { width: 52px; font-size: 11px; }
+  #play-menu .menu-item, #feed-menu .menu-item { font-size: 11px; }
 }
 
 /* very short screens (e.g. 360x640): squeeze harder so the chat input

@@ -48,18 +48,27 @@
   var blipAudio = null;
 
   var state = {
-    accessory: null,      // null | 'beanie' | 'glasses' | 'starclips'
+    accessory: null,      // null | 'beanie' | 'glasses' | 'starclips' (head slot)
+    gear: { head: null, neck: null, braid: null, outfit: null, room: null, decor: [] }, // v11: six wear slots (head/neck/braid single, outfit single, room theme single, decor multi)
     sleeping: false,
     moodSleepy: false,    // game sets this from mood (tired)
+    excited: false,       // v11: game sets this from mood (excited) — bigger bob + sparkles
     happyUntil: 0,        // timestamp: eyes closed happy
     bathUntil: 0,
     celebrateUntil: 0,
+    annoyedUntil: 0,      // v11: timestamp: angry brows + vein (body-touch warning)
     squash: 0,            // 0..1 squash-and-stretch (pet/celebrate), decays fast
     blush: 0,             // 0..1 current blush alpha
     blushTarget: 0,
     muted: false,
+    reducedMotion: false, // v11: settings — no bob/squash/particles
+    autoRotate: true,     // v11: settings — drag look-at on/off
     ready: false
   };
+
+  // Day/night bird (v11): a pixel bird crosses the window pane every
+  // 40–90s during the day. State lives outside `state` (not persisted).
+  var bird = { active: false, x: -30, y: 70, nextAt: 0 };
 
   // Spring physics (head), in canvas px / radians.
   var spring = {
@@ -76,6 +85,10 @@
   // Particles: {type:'heart'|'bubble'|'spark', x,y,vx,vy,life,maxLife,size,rot,vr}
   var particles = [];
   var zzzTimer = null, bathTimer = null;
+  // v11: toy-ball toss — one ball at a time, gravity + one platform bounce.
+  var ball = { active: false, x: 0, y: 0, vx: 0, vy: 0, t0: 0 };
+  // v11: toy actions — plush bunny / star wand held at the chest for 4s.
+  var toy = { kind: null, until: 0 };
 
   // Pointer tracking.
   var ptr = { down: false, sx: 0, sy: 0, cx: 0, cy: 0, t: 0, dragging: false };
@@ -88,6 +101,23 @@
   function toCanvasY(y) { var L = layout(); return L.oy + y * L.s; }
   function toSrcX(cx) { var L = layout(); return (cx - L.ox) / L.s; }
   function toSrcY(cy) { var L = layout(); return (cy - L.oy) / L.s; }
+
+  // v11: day/night cycle. Hour source, in order: the test override
+  // window.ASTOLFO_HOUR (verify only), the user's settings dayNight
+  // ('day'/'night' force a fixed hour), else the real clock.
+  function dayPart() {
+    var h;
+    if (typeof window.ASTOLFO_HOUR === 'number') h = window.ASTOLFO_HOUR;
+    else if (window.Game && window.Game.state && window.Game.state.settings) {
+      var dn = window.Game.state.settings.dayNight;
+      if (dn === 'day') h = 12;
+      else if (dn === 'night') h = 22;
+      else h = new Date().getHours();
+    } else h = new Date().getHours();
+    if (h >= 7 && h < 17) return 'day';
+    if (h >= 17 && h < 19) return 'dusk';
+    return 'night';
+  }
 
   function loadImage(src) {
     return new Promise(function (res) {
@@ -161,9 +191,12 @@
     }
   }
   function spawnBubble(n) {
+    // v11: bubbles spread over the WHOLE body (shoulders and head too) —
+    // the old y 420-470 band clustered them all at the waist/shorts
+    // (Gemini round 10). Canvas coords: body spans y ~112-490.
     for (var i = 0; i < n; i++) {
       particles.push({
-        type: 'bubble', x: 100 + Math.random() * 520, y: 420 + Math.random() * 50,
+        type: 'bubble', x: 110 + Math.random() * 500, y: 150 + Math.random() * 320,
         vx: (Math.random() - 0.5) * 10, vy: -(20 + Math.random() * 26),
         life: 0, maxLife: 2.2 + Math.random(), size: 8 + Math.random() * 16,
         rot: 0, vr: 0, color: '#ffffff'
@@ -201,7 +234,7 @@
     ctx.fillStyle = '#ffffff'; // white pixel highlight, upper-left
     ctx.fillRect(Math.round(x - r * 0.45), Math.round(y - r * 0.55), Math.max(2, cell), Math.max(2, cell));
   }
-  // Zzz as DOM spans inside #sleep-fx, ABOVE the veil (fx3, audit F7; v9):
+  // Zzz as DOM canvases inside #sleep-fx, ABOVE the veil (fx3, audit F7; v9):
   // the canvas 'Z' particles were invisible — the stage is dimmed to 45%
   // AND the 55%-opaque veil sits on top, crushing a purple Z to near zero
   // contrast. A white bold Z with a black shadow on the dark veil reads.
@@ -214,24 +247,28 @@
   // grid (white cells, 1-cell black outline), so it matches the pixel art
   // instead of clashing with it. The span itself is one 6px cell; every
   // other cell is a box-shadow offset from it.
+  // v11: the box-shadow outline was a full 6px cell thick, so the Zs read
+  // as heavy black-and-white tiles on the hair, and two still overlapped
+  // on the phone (Gemini round 10). The Z is now PAINTED on a tiny canvas
+  // (pixel rects) so the black outline is exactly 1px, and Zs spawn ONLY
+  // in the top-right corner OUTSIDE the hair frame (never mid-forehead).
   var ZGRID = ['11111', '00001', '00010', '00100', '01000', '11111'];
-  var ZCELL = 6;
-  function pixelZShadows() {
-    var filled = {}, outline = {}, sh = [], k, r, c, dr, dc, nk, p;
-    for (r = 0; r < ZGRID.length; r++)
-      for (c = 0; c < 5; c++)
-        if (ZGRID[r].charAt(c) === '1') filled[r + ',' + c] = 1;
-    for (k in filled) {
-      p = k.split(','); r = +p[0]; c = +p[1];
-      for (dr = -1; dr <= 1; dr++) for (dc = -1; dc <= 1; dc++) {
-        if (!dr && !dc) continue;
-        nk = (r + dr) + ',' + (c + dc);
-        if (!filled[nk] && r + dr >= 0 && r + dr < ZGRID.length && c + dc >= 0 && c + dc < 5) outline[nk] = 1;
-      }
+  function paintPixelZ(cv) {
+    var cell = +cv.dataset.cell || 5;
+    var c = cv.getContext('2d');
+    cv.width = 5 * cell + 2; cv.height = 6 * cell + 2;
+    var r, col;
+    // black outline: every filled cell expanded by 1px, then white on top
+    c.fillStyle = '#1a1a1a';
+    for (r = 0; r < 6; r++) for (col = 0; col < 5; col++) {
+      if (ZGRID[r].charAt(col) !== '1') continue;
+      c.fillRect(1 + col * cell - 1, 1 + r * cell - 1, cell + 2, cell + 2);
     }
-    for (k in outline) { p = k.split(','); sh.push((+p[1] * ZCELL) + 'px ' + (+p[0] * ZCELL) + 'px 0 #1a1a1a'); }
-    for (k in filled) { p = k.split(','); sh.push((+p[1] * ZCELL) + 'px ' + (+p[0] * ZCELL) + 'px 0 #fff'); }
-    return sh.join(',');
+    c.fillStyle = '#ffffff';
+    for (r = 0; r < 6; r++) for (col = 0; col < 5; col++) {
+      if (ZGRID[r].charAt(col) !== '1') continue;
+      c.fillRect(1 + col * cell, 1 + r * cell, cell, cell);
+    }
   }
   var lastZzzX = null; // v10: consecutive Zs must not land on top of each other
   function spawnZzz() {
@@ -239,11 +276,28 @@
     var wrap = document.getElementById('stage-wrap');
     if (!fx || !wrap) return;
     var r = wrap.getBoundingClientRect();
-    var z = document.createElement('span');
+    var narrow = r.width < 500;
+    var cell = narrow ? 4 : 5; // 22px / 27px wide Z — smaller on the phone
+    var z = document.createElement('canvas');
     z.className = 'zzz-float';
-    z.style.boxShadow = pixelZShadows();
-    var top = Math.round(r.top + r.height * (0.18 + Math.random() * 0.10));
-    var rise = 70;
+    z.dataset.cell = cell;
+    paintPixelZ(z);
+    // Top strip BETWEEN the window and the framed poster, above the hair:
+    // the window ends at ~26% of the stage width and the poster (canvas
+    // x 556-684 = 77-95%, y 28-124) starts at ~77%, while the hair top
+    // sits ~24% down — so Zs live in the 30-72% band, 10-16% down.
+    // v12: the old 78-95% band sat EXACTLY on the poster — every Z
+    // overlapped its right edge (desktop gp-06, phone gp-11) and the
+    // widest Z clipped at the stage's top-right corner (gp-11).
+    var top = Math.round(r.top + r.height * (0.10 + Math.random() * 0.06));
+    // v11: spawn at 10-16% of stage height (was 4-10%) and cap the rise
+    // at 50px AND at the distance to the stage top, so a Z never leaves
+    // the stage: the old 70px rise carried a Z half off the top edge
+    // (gp-05-sleep-desktop). `top` is viewport-absolute (#sleep-fx is
+    // position:fixed), so the stage-top distance is top - r.top — a bare
+    // `top - 4` would be hundreds of px and would not cap anything on
+    // the phone, where the spawn sits only ~28-45px below the stage top.
+    var rise = Math.max(0, Math.min(50, top - r.top - 4));
     /* v9: while the sleep bubble is shown it sits at the stage top, and on
        short phone stages the head (hence the Z spawn band) is right under
        it — a rising Z used to drift up through the bubble text. Clamp the
@@ -253,13 +307,31 @@
     if (bub && bub.classList.contains('show')) {
       var floor = bub.getBoundingClientRect().bottom + 6;
       if (top < floor + 4) top = Math.round(floor + 4);
-      rise = Math.max(0, Math.min(70, top - floor));
+      rise = Math.max(0, Math.min(50, top - floor, top - r.top - 4));
     }
-    // v10: keep >=40px from the previous Z's x (the two spawn-at-once Zs
-    // used to overlap into one blob on the phone's narrow spawn band).
-    var zx = Math.round(r.left + r.width * (0.5 + (Math.random() - 0.5) * 0.25));
-    for (var t = 0; t < 6 && lastZzzX != null && Math.abs(zx - lastZzzX) < 40; t++)
-      zx = Math.round(r.left + r.width * (0.5 + (Math.random() - 0.5) * 0.25));
+    // v11: the gap must exceed the Z's own width (22px narrow / 27px wide).
+    // Check against ALL live Zs, not just the last one: with a 1400ms spawn
+    // interval and a 3000ms life, up to 3 Zs coexist, so a new Z can land
+    // on top of an older one that is not the most recent. If every
+    // candidate is too close, skip this round rather than overlap.
+    var minGap = narrow ? 32 : 40;
+    var liveX = [];
+    var kids = fx.querySelectorAll('.zzz-float');
+    for (var k = 0; k < kids.length; k++) {
+      var lx = parseFloat(kids[k].style.left);
+      if (!isNaN(lx)) liveX.push(lx);
+    }
+    var zx = Math.round(r.left + r.width * (0.30 + Math.random() * 0.42));
+    var okSpot = false;
+    for (var t = 0; t < 10; t++) {
+      okSpot = true;
+      for (var j = 0; j < liveX.length; j++) {
+        if (Math.abs(zx - liveX[j]) < minGap) { okSpot = false; break; }
+      }
+      if (okSpot) break;
+      zx = Math.round(r.left + r.width * (0.30 + Math.random() * 0.42));
+    }
+    if (!okSpot) return;
     lastZzzX = zx;
     z.style.left = zx + 'px';
     z.style.top = top + 'px';
@@ -309,7 +381,9 @@
     spawnHeart(4, hx - 110, hy - 20);
     spawnHeart(3, hx + 110, hy - 20);
     playRandom(VOICE.pet);
-    speak('یاهو! ناز شدم!');
+    // v11: pet lines come from the shuffle-bag pools (Lines.next) — the
+    // single hardcoded line was the owner's core complaint.
+    speak(window.Lines ? window.Lines.next('pet') : 'یاهو! ناز شدم!');
   }
 
   function eat() {
@@ -330,6 +404,677 @@
       if (performance.now() > state.bathUntil) { clearInterval(bathTimer); bathTimer = null; return; }
       spawnBubble(3); spawnSpark(1, toCanvasX(700 + Math.random() * 200), toCanvasY(500 + Math.random() * 400));
     }, 450);
+  }
+
+  // v11: toy-ball toss — a pixel ball arcs across the stage, bounces once
+  // on the platform, and Astolfo jumps for it. Ball state is integrated in
+  // frame(); the draw is a stepped pixel disc (gold with a pink band).
+  function tossBall() {
+    var now = performance.now();
+    ball.active = true;
+    ball.x = 120; ball.y = 430; ball.vx = 340; ball.vy = -560; ball.t0 = now; // v11: stronger arc (was -420) — the old toss barely left the hand
+    state.happyUntil = now + 1200;
+    state.squash = 1;
+    state.blushTarget = 1;
+    setTimeout(function () { state.blushTarget = 0; }, 1600);
+    spring.dyVel += -140;
+    spawnHeart(3, toCanvasX(800), toCanvasY(300));
+  }
+  function drawPixelDisc(x, y, r, color) {
+    var cell = Math.max(2, Math.round(r / 5));
+    var rows = Math.ceil((2 * r) / cell), i, dy, hw;
+    ctx.fillStyle = color;
+    for (i = 0; i < rows; i++) {
+      dy = (i + 0.5) * cell - r;
+      hw = Math.sqrt(Math.max(0, r * r - dy * dy));
+      ctx.fillRect(Math.round(x - hw), Math.round(y - r + i * cell), Math.round(2 * hw), cell);
+    }
+  }
+  function drawBall(x, y, r) {
+    // Gold ball, black stepped outline, pink band across the middle.
+    drawPixelDisc(x, y, r + 2, '#1a1a1a');
+    drawPixelDisc(x, y, r, '#ffd94a');
+    ctx.fillStyle = '#ff5d8f';
+    ctx.fillRect(Math.round(x - r * 0.8), Math.round(y - 3), Math.round(r * 1.6), 6);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.round(x - r * 0.5), Math.round(y - r * 0.6), 5, 5);
+  }
+
+  // v11: annoyed face for the body-touch warning — angry brows slanting
+  // down toward the nose + a pink anger vein at the right temple. Drawn
+  // in head space (inside the head group) so it moves with the head.
+  // Source coords: eyes at (719,334) / (894,332); brows sit on the skin
+  // above them (y 282-304); vein at the right temple (985,255).
+  function drawAnnoyed(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    // Left brow: steps descending toward the nose (inner end lower).
+    R(668, 282, 30, 10); R(696, 286, 30, 10); R(724, 290, 30, 10); R(750, 294, 22, 10);
+    // Right brow: mirrored.
+    R(850, 294, 22, 10); R(872, 290, 30, 10); R(902, 286, 30, 10); R(930, 282, 30, 10);
+    // Anger vein: black outline cross, pink inner cross, right temple.
+    ctx.fillStyle = '#1a1a1a';
+    R(981, 241, 12, 34); R(970, 252, 34, 12);
+    ctx.fillStyle = '#ff5d8f';
+    R(984, 244, 6, 28); R(973, 255, 28, 6);
+  }
+  function annoyed() {
+    var now = performance.now();
+    state.annoyedUntil = now + 1600;
+    spring.angVel += (Math.random() - 0.5) * 0.4;
+    playRandom(VOICE.poke);
+  }
+  // v11: procedural pixel scarf (neck slot) — pink band with a gold stripe,
+  // a knot at the right, two tails down the chest. Body space (source px).
+  function drawScarf(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    R(636, 474, 328, 72); R(876, 540, 48, 130); R(924, 540, 44, 92); // outlines
+    ctx.fillStyle = '#ff5d8f';
+    R(642, 480, 316, 60); R(882, 546, 36, 118); R(930, 546, 32, 80); // pink band + tails
+    ctx.fillStyle = '#ffd94a';
+    R(642, 502, 316, 12); R(882, 640, 36, 8); R(930, 604, 32, 8); // gold stripe + tail tips
+    ctx.fillStyle = '#1a1a1a';
+    R(900, 496, 44, 44); // knot outline
+    ctx.fillStyle = '#ff8fb3';
+    R(906, 502, 32, 32); // knot
+  }
+  // v11: procedural pixel bow (braid slot) — two wings + knot on the upper
+  // right braid. Head space (source px), moves with the head.
+  // v11: procedural pixel bow (braid slot) — two wings + knot on the upper
+  // right braid. Head space (source px), moves with the head. The braid
+  // runs x 898-1012, y 506-721 (see the hit-test regions), so the bow sits
+  // centred on it at its very top (x 897-1013, y 505-545): high enough to
+  // read as a hair bow, not a bow tie at the neck.
+  function drawBow(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    R(897, 505, 56, 40); R(957, 505, 56, 40); R(941, 511, 22, 28); // outlines
+    ctx.fillStyle = '#ff5d8f';
+    R(901, 509, 48, 32); R(961, 509, 48, 32); // pink wings
+    ctx.fillStyle = '#ff8fb3';
+    R(944, 512, 16, 22); // knot
+  }
+
+  // ---------- v11 shop expansion: head slot (head group, after head image) ----------
+  // Gold crown on the hair top (x 680-940, y 235-310): three stepped
+  // points + pink gems on the band. The band bottom (y 310) overlaps the
+  // hair fringe, so the crown sits ON the hair, never floating above it.
+  function drawCrown(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    R(688, 268, 44, 18); R(696, 254, 28, 14); R(704, 242, 12, 12); // left point
+    R(782, 262, 56, 24); R(792, 248, 36, 14); R(802, 236, 16, 12); // middle point
+    R(888, 268, 44, 18); R(896, 254, 28, 14); R(904, 242, 12, 12); // right point
+    R(680, 284, 260, 26); // band outline
+    ctx.fillStyle = '#ffd94a';
+    R(692, 272, 36, 14); R(700, 258, 20, 14); R(707, 246, 6, 12);
+    R(786, 266, 48, 20); R(796, 252, 28, 14); R(805, 240, 10, 12);
+    R(892, 272, 36, 14); R(900, 258, 20, 14); R(907, 246, 6, 12);
+    R(686, 290, 248, 14); // band
+    ctx.fillStyle = '#ff5d8f'; // pink gems on the band
+    R(716, 292, 10, 10); R(795, 292, 10, 10); R(874, 292, 10, 10);
+  }
+  // Pink cat ears at the hair top sides: stepped triangles, pink outside,
+  // lighter-pink inner ear. Left x 600-700, right x 900-1000, y 210-310.
+  // Cat ears: BIG stepped triangles whose tips poke ABOVE the hair
+  // silhouette at the upper corners (hair top at x 552-578 is y ~150-185,
+  // so the tip band y 95-115 clears it by 35-90px). The first version sat
+  // at y 214-310, fully inside the pink hair mass, and read as a hair
+  // tuft. Thick black outline + light-pink inner so the ears read at
+  // full-stage size, not only at zoom.
+  function drawCatEars(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a'; // outline, left
+    R(552, 95, 26, 20); R(542, 115, 50, 25); R(532, 140, 76, 30); R(522, 170, 100, 30);
+    R(512, 200, 126, 40); R(502, 240, 150, 35); R(492, 275, 170, 25);
+    ctx.fillStyle = '#1a1a1a'; // outline, right (mirror about x=800)
+    R(1022, 95, 26, 20); R(1008, 115, 50, 25); R(992, 140, 76, 30); R(978, 170, 100, 30);
+    R(962, 200, 126, 40); R(948, 240, 150, 35); R(938, 275, 170, 25);
+    ctx.fillStyle = '#ff5d8f'; // fill, left
+    R(560, 101, 10, 14); R(550, 121, 34, 19); R(540, 146, 60, 24); R(530, 176, 84, 24);
+    R(520, 206, 110, 34); R(510, 246, 134, 29); R(500, 281, 154, 19);
+    ctx.fillStyle = '#ff5d8f'; // fill, right
+    R(1030, 101, 10, 14); R(1016, 121, 34, 19); R(1000, 146, 60, 24); R(986, 176, 84, 24);
+    R(970, 206, 110, 34); R(956, 246, 134, 29); R(946, 281, 154, 19);
+    ctx.fillStyle = '#ff8fb3'; // inner ear, left + right
+    R(540, 176, 40, 24); R(534, 206, 52, 34); R(528, 246, 64, 29);
+    R(1020, 176, 40, 24); R(1014, 206, 52, 34); R(1008, 246, 64, 29);
+  }
+  // Long bunny ears: white outside, pink inner. The tips reach source
+  // y -60 — the hair top at x 640-670 is y 25-51, so the ears break the
+  // silhouette by ~20 stage px and read as LONG bunny ears, not white
+  // clips. (The y 10 version only cleared the hair by ~4px and still
+  // read as tabs sitting on the fringe.)
+  function drawBunnyEars(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    R(645, -60, 20, 30); R(638, -30, 34, 40); R(632, 10, 46, 35); R(620, 45, 70, 265);
+    R(935, -60, 20, 30); R(928, -30, 34, 40); R(922, 10, 46, 35); R(910, 45, 70, 265);
+    ctx.fillStyle = '#ffffff';
+    R(649, -55, 12, 25); R(642, -25, 26, 35); R(637, 15, 36, 30); R(626, 50, 58, 255);
+    R(939, -55, 12, 25); R(932, -25, 26, 35); R(927, 15, 36, 30); R(916, 50, 58, 255);
+    ctx.fillStyle = '#ff8fb3'; // pink inner
+    R(644, 60, 22, 240); R(934, 60, 22, 240);
+  }
+  // Flower crown: 5 small plus-petal flowers across the hairline.
+  // Petals are WHITE and GOLD only — the first version's pink petals
+  // vanished into the pink hair. Slightly bigger (26px) so the crown
+  // reads at full-stage size.
+  function drawFlowerCrown(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    var flowers = [
+      { cx: 650, cy: 312, c: '#ffffff', dot: '#ff5d8f' },
+      { cx: 730, cy: 306, c: '#ffd94a', dot: '#ff5d8f' },
+      { cx: 810, cy: 302, c: '#ffffff', dot: '#ffd94a' },
+      { cx: 890, cy: 306, c: '#ffd94a', dot: '#ff5d8f' },
+      { cx: 960, cy: 312, c: '#ffffff', dot: '#ff5d8f' }
+    ];
+    for (var i = 0; i < flowers.length; i++) {
+      var f = flowers[i], cx = f.cx, cy = f.cy;
+      ctx.fillStyle = '#1a1a1a';
+      R(cx - 13, cy - 6, 26, 12); R(cx - 6, cy - 13, 12, 26); // plus outline
+      ctx.fillStyle = f.c;
+      R(cx - 10, cy - 4, 20, 8); R(cx - 4, cy - 10, 8, 20); // petals
+      ctx.fillStyle = f.dot;
+      R(cx - 4, cy - 4, 8, 8); // centre dot
+    }
+  }
+  // Pink sleep mask band (x 660-950, y 295-365) covering BOTH eyes fully
+  // (eyes 686-932, y 306-354), black outline, small gold star at the
+  // right end. Unlike glasses it MUST still show while sleeping — it is a
+  // sleep aid — so it is never gated by state.sleeping.
+  function drawSleepMask(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    R(660, 295, 290, 70); // outline
+    ctx.fillStyle = '#ff5d8f';
+    R(666, 301, 278, 58); // pink band
+    ctx.fillStyle = '#ff8fb3';
+    R(666, 301, 278, 10); // light-pink top stripe
+    ctx.fillStyle = '#1a1a1a'; // gold star at the right end (4-point)
+    R(913, 312, 26, 36); R(907, 321, 38, 18);
+    ctx.fillStyle = '#ffd94a';
+    R(916, 315, 20, 30); R(910, 324, 32, 12);
+    ctx.fillStyle = '#ffffff';
+    R(922, 324, 8, 8);
+  }
+
+  // ---------- v11 shop expansion: neck slot (head group, after head image) ----------
+  // Thin gold chain in a V (700,600)->(800,680)->(900,600) with a gold
+  // star pendant at (800,680-720). Drawn in the head group so it moves
+  // with the head; it lies on the chest, over the body image.
+  function drawNecklaceGold(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    function chain(x0, y0, x1, y1) {
+      var n = 12, i, t, x, y;
+      ctx.fillStyle = '#1a1a1a';
+      for (i = 0; i <= n; i++) {
+        t = i / n; x = Math.round(x0 + (x1 - x0) * t); y = Math.round(y0 + (y1 - y0) * t);
+        R(x - 4, y - 3, 8, 6);
+      }
+      ctx.fillStyle = '#ffd94a';
+      for (i = 0; i <= n; i++) {
+        t = i / n; x = Math.round(x0 + (x1 - x0) * t); y = Math.round(y0 + (y1 - y0) * t);
+        R(x - 2, y - 1, 4, 3);
+      }
+    }
+    chain(700, 600, 800, 680);
+    chain(800, 680, 900, 600);
+    ctx.fillStyle = '#1a1a1a'; // connector loop
+    R(794, 672, 12, 12);
+    ctx.fillStyle = '#ffd94a';
+    R(797, 675, 6, 6);
+    ctx.fillStyle = '#1a1a1a'; // star pendant (4-point)
+    R(792, 682, 16, 40); R(780, 694, 40, 16);
+    ctx.fillStyle = '#ffd94a';
+    R(795, 685, 10, 34); R(783, 697, 34, 10);
+    ctx.fillStyle = '#ffffff';
+    R(797, 699, 6, 6);
+  }
+  // White pearl dots along the same V path + a slightly bigger pearl
+  // pendant at the bottom (800,688). White-on-white is unreadable on
+  // the hoodie, so the pearls sit on a thin gold chain (the V reads
+  // even where a pearl blends in) and the pendant has a gold ring.
+  function drawNecklacePearl(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    function chain(x0, y0, x1, y1) {
+      var n = 12, i, t, x, y;
+      ctx.fillStyle = '#e8a91c';
+      for (i = 0; i <= n; i++) {
+        t = i / n; x = Math.round(x0 + (x1 - x0) * t); y = Math.round(y0 + (y1 - y0) * t);
+        R(x - 3, y - 2, 6, 4);
+      }
+    }
+    chain(700, 600, 800, 680);
+    chain(800, 680, 900, 600);
+    function pearls(x0, y0, x1, y1) {
+      var n = 7, i, t, x, y;
+      for (i = 0; i <= n; i++) {
+        t = i / n; x = Math.round(x0 + (x1 - x0) * t); y = Math.round(y0 + (y1 - y0) * t);
+        ctx.fillStyle = '#1a1a1a'; R(x - 7, y - 7, 14, 14);
+        ctx.fillStyle = '#ffffff'; R(x - 5, y - 5, 10, 10);
+        ctx.fillStyle = '#a8d8f0'; R(x - 4, y - 4, 3, 3); // tiny blue shine
+      }
+    }
+    pearls(700, 600, 800, 680);
+    pearls(800, 680, 900, 600);
+    ctx.fillStyle = '#ffd94a'; // gold ring around the pendant pearl
+    R(788, 680, 24, 24);
+    ctx.fillStyle = '#1a1a1a';
+    R(790, 682, 20, 20);
+    ctx.fillStyle = '#ffffff';
+    R(793, 685, 14, 14);
+    ctx.fillStyle = '#a8d8f0';
+    R(795, 687, 4, 4);
+  }
+  // Pink bow tie at the neck centre (800,545): wide wings x 740-860,
+  // y 530-575 + knot. Distinct from the braid bow (smaller, on the hair).
+  function drawBowtie(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a'; // wings: trapezoids, wide at the outer edge
+    R(744, 530, 48, 8); R(740, 538, 54, 28); R(744, 566, 48, 9);
+    R(808, 530, 48, 8); R(806, 538, 54, 28); R(808, 566, 48, 9);
+    ctx.fillStyle = '#ff5d8f';
+    R(748, 534, 40, 4); R(745, 542, 46, 20); R(748, 566, 40, 5);
+    R(812, 534, 40, 4); R(809, 542, 46, 20); R(812, 566, 40, 5);
+    ctx.fillStyle = '#1a1a1a'; // knot
+    R(788, 536, 24, 34);
+    ctx.fillStyle = '#ff8fb3';
+    R(792, 540, 16, 26);
+    ctx.fillStyle = '#ffd94a'; // gold centre dot
+    R(797, 549, 6, 8);
+  }
+
+  // ---------- v11 shop expansion: braid slot (head group) ----------
+  // Gold stars (36x36) at BOTH braid ends, over the sprite's own pink
+  // ties: left centre (645,708), right centre (955,708).
+  function drawStarTies(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    function star(cx, cy) {
+      ctx.fillStyle = '#1a1a1a';
+      R(cx - 5, cy - 18, 10, 36); R(cx - 18, cy - 5, 36, 10);
+      ctx.fillStyle = '#ffd94a';
+      R(cx - 3, cy - 15, 6, 30); R(cx - 15, cy - 3, 30, 6);
+      ctx.fillStyle = '#ffffff';
+      R(cx - 2, cy - 2, 4, 4);
+    }
+    star(645, 708); star(955, 708);
+  }
+  // Small blue ribbons (two loops + knot, 48x32) at both braid ends.
+  function drawRibbonBlue(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    function ribbon(cx, cy) {
+      ctx.fillStyle = '#1a1a1a';
+      R(cx - 24, cy - 14, 20, 28); R(cx + 4, cy - 14, 20, 28); R(cx - 6, cy - 8, 12, 16);
+      ctx.fillStyle = '#7ec8ff';
+      R(cx - 20, cy - 10, 14, 20); R(cx + 7, cy - 10, 14, 20);
+      ctx.fillStyle = '#a8d8f0';
+      R(cx - 3, cy - 5, 6, 10);
+    }
+    ribbon(645, 708); ribbon(955, 708);
+  }
+  // Gold bell (dome + bottom band + slit + highlight) on the right braid
+  // top, centred ~(955,520).
+  // Gold bell on the right braid top, centred (955,520). Enlarged to
+  // 72x64 (was 42x44 — a gold speck at full-stage size) with a clear
+  // dome, dark band, clapper slit and highlight.
+  function drawBell(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    R(927, 492, 56, 12); R(923, 504, 64, 12); R(921, 516, 68, 14); R(919, 530, 72, 12); // dome
+    R(919, 542, 72, 14); // bottom band
+    ctx.fillStyle = '#ffd94a';
+    R(932, 496, 46, 8); R(928, 508, 54, 8); R(926, 520, 58, 10);
+    R(924, 534, 62, 4); R(924, 546, 62, 6);
+    ctx.fillStyle = '#1a1a1a'; // slit
+    R(951, 536, 8, 14);
+    ctx.fillStyle = '#ffffff'; // highlight
+    R(936, 500, 10, 8);
+  }
+
+  // ---------- v11 shop expansion: outfit slot (body space, AFTER body image) ----------
+  // Flowing pink cape: TWO panels hanging from the shoulders, flaring
+  // wider toward the hem. v12 rewrite — the v11 panels read as two flat
+  // pink columns (gp-32): only 4 big steps, so the outer edge was three
+  // horizontal shelves; the fold lines were near-vertical (reinforcing
+  // "column"); the fill was one flat pink. Now: 8 small steps per panel
+  // so the outer edge reads as ONE smooth diagonal; a darker shade strip
+  // down the outer edge + a light highlight strip down the inner edge
+  // (the panel curls, it is not a flat board); TWO clearly diagonal folds
+  // per panel (upper-inner -> lower-outer), dark #c22e5f; a darker hem
+  // band; the collar band is a distinctly darker pink with a big gold
+  // clasp. v12b: the per-step full-rect outline left a black seam at
+  // every step boundary (visible as stacked blocks at 3x zoom) — the
+  // outline is now only on the vertical edges + one top/bottom band.
+  // The panels keep the old x-ranges, so the checkered sleeves stay
+  // visible at the sides and the white hoodie shows through the middle gap.
+  function drawCape(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    // [yTop, xOuter, xInner] per step, left panel; the right panel is the
+    // mirror around x=800. Outer edge: 600 -> 430 (smooth diagonal flare);
+    // inner edge stays ~668-684 (the hoodie gap stays open).
+    var steps = [
+      [620, 600, 668], [710, 580, 670], [800, 560, 672], [890, 540, 674],
+      [980, 518, 676], [1070, 496, 678], [1160, 474, 680], [1250, 452, 682],
+      [1340, 430, 684]
+    ];
+    var mirror = function (x) { return 1600 - x; };
+    var panel = function (flip) {
+      var i, y0, y1, xo, xi;
+      var X = function (x) { return flip ? mirror(x) : x; };
+      for (i = 0; i < steps.length; i++) {
+        y0 = steps[i][0];
+        y1 = (i + 1 < steps.length) ? steps[i + 1][0] : 1350;
+        xo = steps[i][1]; xi = steps[i][2];
+        var x0 = Math.min(X(xo), X(xi)), x1 = Math.max(X(xo), X(xi));
+        // v12b: outline ONLY the vertical edges of each step. The v12
+        // outline (a full rect expanded 6px per step) left a black seam
+        // at every step boundary, so the panel read as stacked blocks.
+        ctx.fillStyle = '#1a1a1a';
+        R(x0 - 6, y0, 6, y1 - y0);
+        R(x1, y0, 6, y1 - y0);
+        // panel fill
+        ctx.fillStyle = '#ff5d8f';
+        R(x0, y0, x1 - x0, y1 - y0);
+        // outer-edge shade (the panel curls away from the light) + inner
+        // highlight (the edge catching the light) — the drape cue.
+        ctx.fillStyle = '#e84a7f';
+        if (flip) R(x1 - 24, y0, 24, y1 - y0); else R(x0, y0, 24, y1 - y0);
+        ctx.fillStyle = '#ff8fb3';
+        if (flip) R(x0, y0, 14, y1 - y0); else R(x1 - 14, y0, 14, y1 - y0);
+      }
+      // top + bottom edge outlines (single bands, not per-step).
+      var tx0 = Math.min(X(steps[0][1]), X(steps[0][2])), tx1 = Math.max(X(steps[0][1]), X(steps[0][2]));
+      var bx0 = Math.min(X(steps[8][1]), X(steps[8][2])), bx1 = Math.max(X(steps[8][1]), X(steps[8][2]));
+      ctx.fillStyle = '#1a1a1a';
+      R(tx0 - 6, 614, (tx1 - tx0) + 12, 6);
+      R(bx0 - 6, 1344, (bx1 - bx0) + 12, 6);
+      // TWO diagonal folds per panel (upper-inner -> lower-outer, ~15 deg
+      // off vertical), v12b: the single 10px #e84a7f fold was too subtle
+      // to read at screen scale — now 16px wide, DARK #c22e5f, doubled.
+      var fold = function (a0, a1) {
+        var f0 = flip ? X(a0) : a0, f1 = flip ? X(a1) : a1;
+        for (var k = 0; k <= 6; k++) {
+          var fx = f0 + (f1 - f0) * (k / 6), fy = 700 + k * 90;
+          R(fx - 8, fy, 16, 95);
+        }
+      };
+      ctx.fillStyle = '#c22e5f';
+      fold(628, 478);
+      fold(664, 540);
+      // hem band (darker) on the last step.
+      ctx.fillStyle = '#e84a7f';
+      R(bx0, 1310, bx1 - bx0, 34);
+    };
+    panel(false);
+    panel(true);
+    // Collar band across the shoulders — distinctly DARKER pink than the
+    // panels so it reads as a separate piece, not more panel.
+    ctx.fillStyle = '#1a1a1a';
+    R(560, 625, 480, 40);
+    ctx.fillStyle = '#c22e5f';
+    R(566, 631, 468, 28);
+    ctx.fillStyle = '#ff8fb3'; // light stripe on the collar
+    R(566, 631, 468, 8);
+    // Gold clasp at the neck centre — bigger, with a white glint.
+    ctx.fillStyle = '#1a1a1a';
+    R(772, 612, 56, 48);
+    ctx.fillStyle = '#ffd94a';
+    R(778, 618, 44, 36);
+    ctx.fillStyle = '#ffffff';
+    R(792, 626, 12, 12);
+  }
+  // White apron panel (x 660-940, y 720-1080) with a pocket (x 750-850,
+  // y 850-950) and straps from the shoulders (y 650-720).
+  function drawApron(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a'; // straps
+    R(676, 650, 16, 76); R(908, 650, 16, 76);
+    ctx.fillStyle = '#ffffff';
+    R(679, 653, 10, 70); R(911, 653, 10, 70);
+    ctx.fillStyle = '#1a1a1a'; // panel outline
+    R(660, 720, 280, 360);
+    ctx.fillStyle = '#ffffff';
+    R(666, 726, 268, 348);
+    ctx.fillStyle = '#ff8fb3'; // hem stripe
+    R(666, 1060, 268, 14);
+    ctx.fillStyle = '#1a1a1a'; // pocket
+    R(750, 850, 100, 100);
+    ctx.fillStyle = '#ffffff';
+    R(756, 856, 88, 88);
+    ctx.fillStyle = '#1a1a1a'; // pink button on the pocket
+    R(790, 888, 20, 20);
+    ctx.fillStyle = '#ff5d8f';
+    R(793, 891, 14, 14);
+  }
+  // Navy sailor collar: a WIDE V (600,620)->(800,790)->(1000,620) with
+  // a 48px navy band and white pinstripes flanking it, and a bigger red
+  // tie knot with long tails. The first version's 22px band with white
+  // stripes ON it read as a thin dark line on the white hoodie.
+  function drawSailor(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    var i, cx, cy;
+    for (i = 0; i <= 11; i++) { // left arm of the V: (600,620) -> (800,790)
+      cx = 600 + i * 16.7; cy = 620 + i * 14.2;
+      ctx.fillStyle = '#1a1a1a'; R(cx - 28, cy - 28, 56, 56);
+      ctx.fillStyle = '#2b3a67'; R(cx - 24, cy - 24, 48, 48);
+      ctx.fillStyle = '#ffffff'; // pinstripes flanking the navy band
+      R(cx + 9, cy - 19, 10, 10); R(cx - 19, cy + 9, 10, 10);
+    }
+    for (i = 0; i <= 11; i++) { // right arm of the V: (1000,620) -> (800,790)
+      cx = 1000 - i * 16.7; cy = 620 + i * 14.2;
+      ctx.fillStyle = '#1a1a1a'; R(cx - 28, cy - 28, 56, 56);
+      ctx.fillStyle = '#2b3a67'; R(cx - 24, cy - 24, 48, 48);
+      ctx.fillStyle = '#ffffff';
+      R(cx - 19, cy - 19, 10, 10); R(cx + 9, cy + 9, 10, 10);
+    }
+    ctx.fillStyle = '#1a1a1a'; // red tie knot + long tails
+    R(778, 706, 44, 36); R(786, 742, 12, 50); R(802, 742, 12, 50);
+    ctx.fillStyle = '#e63950';
+    R(782, 710, 36, 28); R(789, 745, 6, 44); R(805, 745, 6, 44);
+  }
+  // Open gold-trimmed vest: left panel x 600-740, right panel x 860-1000,
+  // y 680-1080 — the white hoodie shows through the middle gap.
+  function drawVest(S, ox, oy) {
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + y * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    ctx.fillStyle = '#1a1a1a';
+    R(600, 680, 140, 400); R(860, 680, 140, 400);
+    ctx.fillStyle = '#ff8fb3';
+    R(606, 686, 128, 388); R(866, 686, 128, 388);
+    ctx.fillStyle = '#ffd94a'; // gold trim on the inner edges + buttons
+    R(724, 686, 10, 388); R(866, 686, 10, 388);
+    ctx.fillStyle = '#1a1a1a';
+    R(697, 777, 18, 18); R(697, 877, 18, 18); R(885, 777, 18, 18); R(885, 877, 18, 18);
+    ctx.fillStyle = '#ffd94a';
+    R(700, 780, 12, 12); R(700, 880, 12, 12); R(888, 780, 12, 12); R(888, 880, 12, 12);
+  }
+
+  // ---------- v11 shop expansion: toy actions ----------
+  // Plush bunny held at the chest (white body, pink ears, ~140px wide);
+  // star wand in her right hand with a sparkle burst at its tip.
+  // Drawn in body space (not the head group) with a gentle bob.
+  function drawToy(S, ox, oy, kind, now) {
+    var bob = Math.round(Math.sin(now / 300) * 6);
+    var R = function (x, y, w, h) {
+      ctx.fillRect(Math.round(ox + x * S), Math.round(oy + (y + bob) * S), Math.max(2, Math.round(w * S)), Math.max(2, Math.round(h * S)));
+    };
+    if (kind === 'plush') {
+      // Bigger (was 140px wide, read as a white smudge on the white
+      // hoodie) + pink bow + pink belly + pink feet so it reads as a bunny.
+      ctx.fillStyle = '#1a1a1a'; // ears
+      R(742, 790, 22, 72); R(836, 790, 22, 72);
+      ctx.fillStyle = '#ffffff';
+      R(745, 793, 16, 66); R(839, 793, 16, 66);
+      ctx.fillStyle = '#ff8fb3'; // pink inner ears
+      R(749, 800, 8, 52); R(843, 800, 8, 52);
+      ctx.fillStyle = '#1a1a1a'; // pink bow between the ears
+      R(772, 838, 56, 22);
+      ctx.fillStyle = '#ff5d8f';
+      R(776, 842, 48, 14);
+      ctx.fillStyle = '#1a1a1a';
+      R(794, 840, 12, 18);
+      ctx.fillStyle = '#ff8fb3';
+      R(797, 843, 6, 12);
+      ctx.fillStyle = '#1a1a1a'; // head + body
+      R(722, 850, 156, 88); R(710, 926, 180, 100);
+      ctx.fillStyle = '#ffffff';
+      R(726, 854, 148, 80); R(714, 930, 172, 92);
+      ctx.fillStyle = '#ff8fb3'; // belly patch
+      R(758, 956, 84, 58);
+      ctx.fillStyle = '#1a1a1a'; // eyes + nose
+      R(752, 878, 12, 14); R(836, 878, 12, 14); R(793, 904, 14, 10);
+      ctx.fillStyle = '#1a1a1a'; // feet
+      R(716, 1004, 38, 22); R(846, 1004, 38, 22);
+      ctx.fillStyle = '#ff5d8f';
+      R(719, 1007, 32, 16); R(849, 1007, 32, 16);
+    } else if (kind === 'wand') {
+      var i; // diagonal gold stick, hand (1090,1150) -> tip (1330,930),
+      // held up and OUT to the right so the stick + star clear the
+      // checkered sleeve — the v11 wand (20px core, 80px star, tip at
+      // x 1180) sat ON the sleeve and read as a tiny gold squiggle
+      // (gp-31). v12: 32px solid gold core in a 40px black sleeve,
+      // 120px star tip out in the free wall space, sparkle burst.
+      ctx.fillStyle = '#1a1a1a';
+      for (i = 0; i <= 11; i++) R(1090 + i * 21.8 - 20, 1150 - i * 20 - 20, 40, 40);
+      ctx.fillStyle = '#ffd94a';
+      for (i = 0; i <= 11; i++) R(1090 + i * 21.8 - 16, 1150 - i * 20 - 16, 32, 32);
+      ctx.fillStyle = '#1a1a1a'; // star at the tip (4-point, 120px)
+      R(1300, 845, 80, 120); R(1280, 880, 120, 40);
+      ctx.fillStyle = '#ffd94a';
+      R(1308, 853, 64, 104); R(1288, 888, 104, 26);
+      ctx.fillStyle = '#ffffff';
+      R(1332, 880, 12, 12);
+      ctx.fillStyle = '#1a1a1a'; // sparkle burst around the tip
+      R(1252, 822, 6, 18); R(1246, 828, 18, 6);
+      R(1402, 822, 6, 18); R(1396, 828, 18, 6);
+      R(1412, 962, 6, 18); R(1406, 968, 18, 6);
+      ctx.fillStyle = '#ffd94a';
+      R(1254, 824, 2, 14); R(1248, 830, 14, 2);
+      R(1404, 824, 2, 14); R(1398, 830, 14, 2);
+      R(1414, 964, 2, 14); R(1408, 970, 14, 2);
+    }
+  }
+  function toyAction(kind) {
+    var now = performance.now();
+    if (kind === 'plush') {
+      toy.kind = 'plush'; toy.until = now + 4000;
+      state.happyUntil = now + 1200; state.squash = 1;
+      spawnHeart(3, toCanvasX(800), toCanvasY(800));
+      playRandom(VOICE.pet);
+    } else if (kind === 'wand') {
+      toy.kind = 'wand'; toy.until = now + 4000;
+      state.happyUntil = now + 1200; state.squash = 1;
+      spawnSpark(12, toCanvasX(1340), toCanvasY(905)); // wand star tip, v12
+      playRandom(VOICE.celebrate);
+    }
+  }
+
+  // ---------- v11 shop expansion: room themes + decor (canvas coords) ----------
+  // Bookshelf on the right wall: 3 shelves + colourful book spines,
+  // x 530-680, y 118-276. Below the poster (ends y 124) and clear of the
+  // window (x 16-188), so it covers neither.
+  function drawBookshelf() {
+    var i, x;
+    var cols = ['#ff5d8f', '#7ec8ff', '#ffd94a', '#58c98b', '#8b7fd4', '#ffffff'];
+    ctx.fillStyle = '#1a1a1a'; // side boards
+    ctx.fillRect(528, 118, 8, 160); ctx.fillRect(672, 118, 8, 160);
+    ctx.fillStyle = '#b07a45';
+    ctx.fillRect(530, 120, 4, 156); ctx.fillRect(674, 120, 4, 156);
+    var shelves = [
+      { plank: 160, books: [[536, 30], [552, 34], [568, 26], [584, 32], [600, 28], [616, 30], [632, 24], [648, 30], [664, 26]] },
+      { plank: 214, books: [[536, 28], [552, 32], [568, 24], [584, 34], [600, 26], [616, 30], [632, 28], [648, 24]] },
+      { plank: 268, books: [[536, 30], [552, 26], [568, 32], [584, 28], [600, 30]] }
+    ];
+    for (var s = 0; s < shelves.length; s++) {
+      var sh = shelves[s];
+      for (i = 0; i < sh.books.length; i++) {
+        x = sh.books[i][0];
+        ctx.fillStyle = cols[i % cols.length];
+        ctx.fillRect(x, sh.plank - sh.books[i][1], 14, sh.books[i][1]);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x, sh.plank - sh.books[i][1], 14, 3); // black top edge
+      }
+      ctx.fillStyle = '#1a1a1a'; // plank
+      ctx.fillRect(530, sh.plank, 150, 8);
+      ctx.fillStyle = '#b07a45';
+      ctx.fillRect(533, sh.plank + 2, 144, 4);
+    }
+    ctx.fillStyle = '#ffd94a'; // tiny gold sparkle on the bottom shelf
+    ctx.fillRect(648, 240, 3, 3); ctx.fillRect(645, 243, 9, 3);
+    ctx.fillRect(642, 246, 15, 3); ctx.fillRect(645, 249, 9, 3); ctx.fillRect(648, 252, 3, 3);
+  }
+  // Floor plant, left: pot + green leaves, x 40-116, y 388-474 — the pot
+  // bottom sits on the platform top edge (y 474), like the character.
+  function drawPlant() {
+    ctx.fillStyle = '#1a1a1a'; // leaves (3 blades)
+    ctx.fillRect(52, 400, 12, 40); ctx.fillRect(46, 420, 12, 30);
+    ctx.fillRect(70, 388, 12, 62);
+    ctx.fillRect(88, 400, 12, 40); ctx.fillRect(94, 420, 12, 30);
+    ctx.fillStyle = '#58c98b';
+    ctx.fillRect(55, 403, 6, 34); ctx.fillRect(49, 423, 6, 24);
+    ctx.fillRect(73, 391, 6, 56);
+    ctx.fillRect(91, 403, 6, 34); ctx.fillRect(97, 423, 6, 24);
+    ctx.fillStyle = '#1a1a1a'; // pot + rim
+    ctx.fillRect(44, 440, 72, 10); ctx.fillRect(48, 446, 64, 28);
+    ctx.fillStyle = '#ff9f43';
+    ctx.fillRect(47, 442, 66, 6); ctx.fillRect(51, 449, 58, 22);
+    ctx.fillStyle = '#1a1a1a'; // soil line
+    ctx.fillRect(51, 449, 58, 4);
+  }
+  // Fairy lights: a gently sagging string across the top with warm
+  // gold / pink bulbs every ~60px, hanging just below the string.
+  function drawFairyLights() {
+    var x, y;
+    ctx.fillStyle = '#1a1a1a'; // string
+    for (x = 0; x < W; x += 8) {
+      y = Math.round(12 + 12 * Math.sin(Math.PI * x / W));
+      ctx.fillRect(x, y, 8, 2);
+    }
+    for (x = 30; x <= 690; x += 60) {
+      y = Math.round(12 + 12 * Math.sin(Math.PI * x / W)) + 6;
+      var gold = ((x / 60) | 0) % 2 === 0;
+      ctx.fillStyle = gold ? '#ffe98a' : '#ffb3c8'; // glow halo
+      ctx.fillRect(x - 6, y - 4, 12, 12);
+      ctx.fillStyle = gold ? '#ffd94a' : '#ff5d8f'; // bulb
+      ctx.fillRect(x - 4, y - 2, 8, 8);
+    }
   }
 
   function sleep(on) {
@@ -393,11 +1138,36 @@
     return now < state.happyUntil || now < state.bathUntil || now < state.celebrateUntil;
   }
 
+  function setGear(gear) {
+    // v11: six wear slots — head (beanie/glasses/starclips + crown/catears/
+    // bunnyears/flowercrown/sleepmask), neck (scarf + necklaces/bowtie),
+    // braid (bow + starties/ribbonBlue/bell), outfit (cape/apron/sailor/
+    // vest), room (theme), decor (array, multi). state.accessory stays
+    // synced to the head slot (layout + the head-slot draws read it).
+    // Keys the caller does not pass keep their current value (game.js
+    // still sends 3-key gear), so a partial update never wipes the room
+    // theme, decor or outfit; an explicit null clears the slot.
+    if (!gear) gear = {};
+    var g = state.gear;
+    state.gear = {
+      head: gear.head !== undefined ? gear.head : g.head,
+      neck: gear.neck !== undefined ? gear.neck : g.neck,
+      braid: gear.braid !== undefined ? gear.braid : g.braid,
+      outfit: gear.outfit !== undefined ? gear.outfit : g.outfit,
+      room: gear.room !== undefined ? gear.room : g.room,
+      decor: gear.decor !== undefined ? gear.decor : g.decor
+    };
+    if (!state.gear.decor) state.gear.decor = [];
+    state.accessory = state.gear.head;
+  }
   function setAccessory(id) {
-    state.accessory = id || null;
+    setGear({ head: id || null, neck: state.gear.neck, braid: state.gear.braid });
   }
 
   function setSleepy(on) { state.moodSleepy = !!on; }
+  function setExcited(on) { state.excited = !!on; }
+  function setReducedMotion(on) { state.reducedMotion = !!on; }
+  function setAutoRotate(on) { state.autoRotate = !!on; }
 
   // ---------- the room: a real pixel stage, not a blank canvas ----------
   // Warm cream wall (clearly distinct from the pink page background),
@@ -407,9 +1177,19 @@
   // stands behind (drawn AFTER the character so the mid-thigh cut edge
   // hides behind the platform front).
   function drawRoom() {
-    ctx.fillStyle = '#ffe6c4'; ctx.fillRect(0, 0, W, H);
+    // v11: room themes (state.gear.room) recolour the wall + dot
+    // wallpaper; null = the current cream wall. The day/night WINDOW sky
+    // is drawn on top of any theme by drawWindow(), so it keeps working.
+    var walls = {
+      roomPink: ['#ffd6e8', '#f0a8c8'],
+      roomMint: ['#c8f0dd', '#8fd8b4'],
+      roomLavender: ['#ddd6f5', '#b3a8e0'],
+      roomNight: ['#2c2350', '#3d3268']
+    };
+    var theme = walls[state.gear.room] || ['#ffe6c4', '#f7c98d'];
+    ctx.fillStyle = theme[0]; ctx.fillRect(0, 0, W, H);
     // Dot wallpaper (12px dots on a 48px grid), wall only.
-    ctx.fillStyle = '#f7c98d';
+    ctx.fillStyle = theme[1];
     for (var y = 24; y < 470; y += 48) {
       for (var x = 24; x < W; x += 48) {
         if (x < 200 && y < 200) continue; // window area
@@ -419,19 +1199,50 @@
     drawWindow();
     drawPoster();
     drawShelf();
+    // v11: decor (state.gear.decor, multi) — bookshelf and plant sit on
+    // the wall/floor; fairy lights hang last so they read over everything.
+    if (state.gear.decor) {
+      if (state.gear.decor.indexOf('bookshelf') !== -1) drawBookshelf();
+      if (state.gear.decor.indexOf('plant') !== -1) drawPlant();
+      if (state.gear.decor.indexOf('fairylights') !== -1) drawFairyLights();
+    }
     // Contact shadow on the platform top edge, behind the character.
     ctx.fillStyle = 'rgba(26,26,26,0.16)';
     ctx.beginPath(); ctx.ellipse(360, 474, 150, 9, 0, 0, Math.PI * 2); ctx.fill();
   }
   function drawWindow() {
-    // Frame depth: black outer -> wood band -> night sky; sill below.
+    // v11: the window follows the day/night cycle — blue sky + sun by day,
+    // orange dusk sun at 17-19, purple night + moon + stars after dark.
+    var part = dayPart();
+    var sky = part === 'day' ? '#7ec8ff' : (part === 'dusk' ? '#f2a35e' : '#4a3670');
+    // Frame depth: black outer -> wood band -> sky; sill below.
     ctx.fillStyle = '#1a1a1a'; ctx.fillRect(16, 16, 172, 172);
     ctx.fillStyle = '#b07a45'; ctx.fillRect(22, 22, 160, 160); // wood frame
-    ctx.fillStyle = '#4a3670'; ctx.fillRect(30, 30, 144, 144); // night sky
-    ctx.fillStyle = '#ffd94a'; // stars (kept clear of the moon + mullions)
-    [[52, 52], [96, 44], [70, 100], [120, 110], [44, 130], [100, 140], [160, 120], [60, 150]]
-      .forEach(function (s) { ctx.fillRect(s[0], s[1], 6, 6); });
-    drawMoon(128, 40); // real crescent, top-right pane, clear of the cross
+    ctx.fillStyle = sky; ctx.fillRect(30, 30, 144, 144); // sky
+    if (part === 'night') {
+      ctx.fillStyle = '#ffd94a'; // stars (kept clear of the moon + mullions)
+      [[52, 52], [96, 44], [70, 100], [120, 110], [44, 130], [100, 140], [160, 120], [60, 150]]
+        .forEach(function (s) { ctx.fillRect(s[0], s[1], 6, 6); });
+      drawMoon(128, 40); // real crescent, top-right pane, clear of the cross
+    } else if (part === 'day') {
+      drawPixelDisc(132, 66, 18, '#ffd94a'); // sun
+      drawPixelDisc(132, 66, 14, '#ffe98a');
+      // Two small white pixel clouds.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(44, 56, 30, 8); ctx.fillRect(50, 50, 18, 6);
+      ctx.fillRect(120, 130, 34, 8); ctx.fillRect(128, 124, 18, 6);
+      // The day bird flies BEHIND the mullions (inside the pane).
+      if (bird.active) {
+        var flap = Math.round(Math.sin(performance.now() / 90) * 3);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(Math.round(bird.x), Math.round(bird.y + flap), 8, 3);
+        ctx.fillRect(Math.round(bird.x + 10), Math.round(bird.y + flap), 8, 3);
+        ctx.fillRect(Math.round(bird.x + 7), Math.round(bird.y + 2), 5, 3);
+      }
+    } else { // dusk: low orange sun near the horizon
+      drawPixelDisc(132, 128, 18, '#ff9f43');
+      drawPixelDisc(132, 128, 13, '#ffc46b');
+    }
     ctx.fillStyle = '#1a1a1a'; // mullions
     ctx.fillRect(99, 30, 6, 144); ctx.fillRect(30, 99, 144, 6);
     // Sill: white ledge with black outline + shadow underneath.
@@ -498,7 +1309,9 @@
     ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 486, W, 4);
     for (var y = 490, row = 0; y < H; y += 35, row++) {
       for (var x = 0, col = 0; x < W; x += 35, col++) {
-        ctx.fillStyle = ((row + col) % 2 === 0) ? '#ff5d8f' : '#ffffff';
+        // v11: roomNight theme gets a darker checker floor.
+        var night = state.gear.room === 'roomNight';
+        ctx.fillStyle = ((row + col) % 2 === 0) ? (night ? '#4a3f7d' : '#ff5d8f') : (night ? '#332a5e' : '#ffffff');
         ctx.fillRect(x, y, 35, 35);
       }
     }
@@ -517,9 +1330,27 @@
     var S = L.s;
 
     // Idle bob: translate only, never stretch. Slower + smaller when sleeping.
+    // v11: reduced-motion setting kills the bob; excited mood doubles it.
     bobPhase += dt * (state.sleeping ? 0.7 : 1.4);
-    var bobY = Math.sin(bobPhase) * (state.sleeping ? 2 : 3); // 1600-space px
-    var sway = Math.sin(bobPhase * 0.65) * 0.012; // tiny head sway, radians
+    var bobAmp = state.reducedMotion ? 0 : (state.sleeping ? 2 : (state.excited ? 5 : 3));
+    var bobY = Math.sin(bobPhase) * bobAmp; // 1600-space px
+    var sway = state.reducedMotion ? 0 : Math.sin(bobPhase * 0.65) * 0.012; // tiny head sway, radians
+    // v11: excited sparkles — a spark every ~0.5s while excited.
+    if (state.excited && Math.random() < dt * 2) {
+      spawnSpark(1, toCanvasX(600 + Math.random() * 400), toCanvasY(200 + Math.random() * 300));
+    }
+    // v11: day bird — launch every 40-90s in daylight, fly across the pane.
+    var now0 = performance.now();
+    if (dayPart() === 'day' && !bird.active && !state.reducedMotion) {
+      if (!bird.nextAt) bird.nextAt = now0 + 20000 + Math.random() * 30000;
+      if (now0 >= bird.nextAt) {
+        bird.active = true; bird.x = 30; bird.y = 55 + Math.random() * 60;
+      }
+    }
+    if (bird.active) {
+      bird.x += 55 * dt;
+      if (bird.x > 185) { bird.active = false; bird.nextAt = now0 + 40000 + Math.random() * 50000; }
+    }
 
     // Blink scheduling.
     if (now >= blinkAt && now >= blinkUntil) {
@@ -544,7 +1375,8 @@
     // Blush easing.
     state.blush += (state.blushTarget - state.blush) * Math.min(1, dt * 6);
     // Squash-and-stretch decay (slow enough that the squash reads in a still).
-    state.squash = Math.max(0, state.squash - dt * 1.2);
+    // v11: reduced motion kills the squash.
+    state.squash = state.reducedMotion ? 0 : Math.max(0, state.squash - dt * 1.2);
 
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, W, H);
@@ -559,6 +1391,13 @@
     } else {
       // Body (torso + arms + shorts).
       if (img.body) ctx.drawImage(img.body, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
+      // v11: neck-slot scarf (procedural pixel scarf on the torso).
+      if (state.gear.neck === 'scarf') drawScarf(S, ox, oy);
+      // v11: outfit slot (single-select) — drawn after the body image.
+      if (state.gear.outfit === 'cape') drawCape(S, ox, oy);
+      else if (state.gear.outfit === 'apron') drawApron(S, ox, oy);
+      else if (state.gear.outfit === 'sailor') drawSailor(S, ox, oy);
+      else if (state.gear.outfit === 'vest') drawVest(S, ox, oy);
 
       // Head group: rotate + spring + squash around the neck pivot.
       ctx.save();
@@ -576,9 +1415,11 @@
       // exactly like the braids already do.
       if (img.backhair) ctx.drawImage(img.backhair, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
       var headImg = img.head;
-      // v10: truly asleep = FULLY closed eyes (head_closed). The half-open
-      // sleepy face is only for the low-energy mood while awake.
-      if (state.sleeping) headImg = img.head_closed || headImg;
+      // v11: truly asleep = the NEW head_sleep sprite (relaxed downward
+      // arcs ︶ ︶). The happy upward arcs (^ ^) of head_closed are only
+      // for petting/blinking now — Gemini round 10 caught the reuse.
+      // The half-open sleepy face stays for the low-energy mood while awake.
+      if (state.sleeping) headImg = img.head_sleep || img.head_closed || headImg;
       else if (state.moodSleepy) headImg = img.head_sleepy || headImg;
       else if (eyesClosed) headImg = img.head_closed || headImg;
       if (headImg) ctx.drawImage(headImg, Math.round(ox), Math.round(oy), Math.round(1600 * S), Math.round(1600 * S));
@@ -612,12 +1453,48 @@
         ctx.drawImage(img.beanie,
           Math.round(ox + BEANIE.x * S), Math.round(oy + BEANIE.y * S),
           Math.round(BEANIE.w * S), Math.round(BEANIE.h * S));
-      }
+      } else if (state.accessory === 'crown') drawCrown(S, ox, oy);
+      else if (state.accessory === 'catears') drawCatEars(S, ox, oy);
+      else if (state.accessory === 'bunnyears') drawBunnyEars(S, ox, oy);
+      else if (state.accessory === 'flowercrown') drawFlowerCrown(S, ox, oy);
+      else if (state.accessory === 'sleepmask') drawSleepMask(S, ox, oy); // NOT gated by sleeping — it is a sleep aid
+      // v11: neck-slot jewellery (head group so it moves with the head;
+      // the scarf stays body-space, above).
+      if (state.gear.neck === 'necklaceGold') drawNecklaceGold(S, ox, oy);
+      else if (state.gear.neck === 'necklacePearl') drawNecklacePearl(S, ox, oy);
+      else if (state.gear.neck === 'bowtie') drawBowtie(S, ox, oy);
+      // v11: braid-slot bow (procedural pixel bow on the right braid).
+      if (state.gear.braid === 'bow') drawBow(S, ox, oy);
+      else if (state.gear.braid === 'starties') drawStarTies(S, ox, oy);
+      else if (state.gear.braid === 'ribbonBlue') drawRibbonBlue(S, ox, oy);
+      else if (state.gear.braid === 'bell') drawBell(S, ox, oy);
+      // v11: annoyed face (body-touch warning) — angry brows + vein,
+      // drawn last so nothing covers them.
+      if (now < state.annoyedUntil) drawAnnoyed(S, ox, oy);
       ctx.restore();
     }
 
+    // v11: toy actions — plush bunny / star wand held at the chest for 4s.
+    if (toy.kind && now < toy.until) drawToy(S, ox, oy, toy.kind, now);
+    else if (toy.kind) toy.kind = null;
+
     // Stage platform in front of the sprite's lower thighs (grounds the cut edge).
     drawPlatform();
+
+    // v11: toy ball — gravity + one platform bounce, then it rests and fades.
+    if (ball.active) {
+      ball.vy += 900 * dt;
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+      if (ball.y > 468 && ball.vy > 0) {
+        ball.y = 468;
+        ball.vy = -ball.vy * 0.45;
+        ball.vx *= 0.8;
+        if (Math.abs(ball.vy) < 70) ball.active = false;
+      }
+      if (performance.now() - ball.t0 > 3500) ball.active = false;
+      if (ball.active) drawBall(ball.x, ball.y, 22); // v11: radius 22 (was 15) — the old ball read as a tiny gold dot in flight
+    }
 
     // Particles.
     for (var i = particles.length - 1; i >= 0; i--) {
@@ -666,6 +1543,8 @@
       if (d >= 8) {
         ptr.dragging = true;
         // Drag: head looks toward the pointer (capped, small).
+        // v11: the auto-rotate setting disables the look-at.
+        if (!state.autoRotate) return;
         var sx = toSrcX(p.x), sy = toSrcY(p.y);
         spring.angTarget = Math.max(-0.06, Math.min(0.06, (sx - 800) / 800 * 0.08));
         spring.dxTarget = Math.max(-8, Math.min(8, (sx - 800) * 0.01));
@@ -685,8 +1564,9 @@
       } else if (inBody(sx, sy)) {
         if (window.Game && window.Game.poke) window.Game.poke();
         else {
-          speak(POKE_LINES[Math.floor(Math.random() * POKE_LINES.length)]);
-          if (Math.random() < 0.5) playRandom(VOICE.poke);
+          // v11: the annoyed face (brows + vein) shows with the warning.
+          annoyed();
+          speak(window.Lines ? window.Lines.next('poke') : POKE_LINES[Math.floor(Math.random() * POKE_LINES.length)]);
         }
       }
     });
@@ -736,12 +1616,12 @@
       loadImage('assets/head_sleepy.png'), loadImage('assets/blush.png'),
       loadImage('assets/accessories/beanie_short.png'), loadImage('assets/accessories/glasses.png'),
       loadImage('assets/accessories/star_blue.png'), loadImage('assets/accessories/star_pink.png'),
-      loadImage('assets/flat.webp')
+      loadImage('assets/flat.webp'), loadImage('assets/head_sleep.png')
     ]).then(function (imgs) {
       img.backhair = imgs[0]; img.body = imgs[1]; img.head = imgs[2];
       img.head_closed = imgs[3]; img.head_sleepy = imgs[4]; img.blush = imgs[5];
       img.beanie = imgs[6]; img.glasses = imgs[7]; img.star_blue = imgs[8]; img.star_pink = imgs[9];
-      img.flat = imgs[10]; flatOk = !!imgs[10];
+      img.flat = imgs[10]; flatOk = !!imgs[10]; img.head_sleep = imgs[11];
       // Preload voice clips (gesture-safe playback needs them warm).
       Object.keys(VOICE).forEach(function (k) { VOICE[k].forEach(loadVoice); });
       blipAudio = loadVoice('blip.mp3');
@@ -756,7 +1636,9 @@
     init: init, pet: pet, eat: eat, bath: bath, sleep: sleep,
     celebrate: celebrate, chatReact: chatReact, blip: blip,
     coinFloat: coinFloat, busy: busy, setAccessory: setAccessory,
-    setSleepy: setSleepy, speak: speak,
-    _state: state, _spring: spring
+    setGear: setGear, setSleepy: setSleepy, setExcited: setExcited,
+    setReducedMotion: setReducedMotion, setAutoRotate: setAutoRotate,
+    speak: speak, annoyed: annoyed, tossBall: tossBall, toyAction: toyAction, dayPart: dayPart,
+    _state: state, _spring: spring, _ball: ball, _toy: toy
   };
 })();

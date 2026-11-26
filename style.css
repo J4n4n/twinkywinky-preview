@@ -1,0 +1,445 @@
+/* Astolfo pixel pet — ONE visual language: all pixel.
+   Thick black borders, hard offset shadows, square corners, chunky pixel chrome.
+   No rounded pastel SaaS cards anywhere. Pixel dots background. */
+:root {
+  --pink-bg: #ffe3ef;
+  --pink-bg2: #fff0f6;
+  --pink-accent: #ff6b9d;
+  --pink-soft: #ffd6e8;
+  --ink: #1a1a1a;
+  --ink-body: #3a2b32;
+  --ink-soft: #5c434d;      /* dark enough for 12px labels on white (~7:1) */
+  --gold: #ffd94a;
+  --gold-text: #8a6100;     /* price text — dark enough to read */
+  --blue: #7ec8ff;
+  --orange: #ff9f43;
+  --purple: #8b7fd4;
+  --heart: #ff5d8f;
+  --green: #58c98b;      /* happiness — clearly different from affection pink */
+  --bar-bg: #ffe3ef;
+  --bar-low: #ff5b5b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: Tahoma, 'Segoe UI', system-ui, sans-serif;
+  background-color: var(--pink-bg);
+  background-image: radial-gradient(#ffd6e8 2px, transparent 2.5px);
+  background-size: 26px 26px;
+  color: var(--ink-body);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+#app { width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column; padding: 10px 10px calc(28px + env(safe-area-inset-bottom, 0px)); gap: 10px; }
+
+/* pixel icons — custom-drawn, same palette/style as the character.
+   Crisp at any size (image-rendering: pixelated). No emoji anywhere.
+   One pixel scale: 16-grid shown at 20px inline / 32px large = ~2px per pixel,
+   matching the character's on-screen pixel chunks. */
+.ic { width: 20px; height: 20px; image-rendering: pixelated; image-rendering: crisp-edges; vertical-align: -4px; }
+.ic-lg { width: 32px; height: 32px; image-rendering: pixelated; image-rendering: crisp-edges; display: block; margin: 0 auto 4px; }
+.chip .ic { width: 18px; height: 18px; vertical-align: -3px; }
+.meter-label .ic { width: 18px; height: 18px; vertical-align: -4px; }
+.menu-item .ic { width: 24px; height: 24px; vertical-align: -4px; }
+.menu-item .price .ic { width: 14px; height: 14px; vertical-align: -2px; }
+#minigame-top .ic { width: 20px; height: 20px; vertical-align: -4px; }
+#sleep-veil .ic { width: 26px; height: 26px; vertical-align: -5px; }
+.popup-card h2 .ic { width: 24px; height: 24px; vertical-align: -4px; }
+footer .ic { width: 14px; height: 14px; vertical-align: -2px; }
+.close .ic { width: 18px; height: 18px; vertical-align: -2px; }
+.mute-btn .ic { width: 18px; height: 18px; vertical-align: -3px; }
+#coin-float .ic { width: 16px; height: 16px; vertical-align: -2px; }
+
+/* HUD: ONE full-width white boxed header bar mirroring the footer —
+   the 4 chips live inside it. v6 note, corrected in v7: the "de-box"
+   claimed in v6 NEVER LANDED — the CSS below always had the 3px border +
+   hard shadow. That is DELIBERATE now: the boxed header matches the
+   boxed footer and the meters card (one visual language). The real v6
+   fix was the layout: title on one side, chips clustered on the other.
+   Do not claim this bar is flat. */
+#hud { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: #fff; border: 3px solid var(--ink); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); padding: 6px 10px; }
+/* v6: the status chips cluster in one group on one side and a crisp site
+   title sits on the other — the layout fix that killed the empty gaps
+   (the bar itself stays boxed, deliberately). */
+#hud-chips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#hud-title { font-size: 16px; font-weight: 800; color: var(--ink-body); white-space: nowrap; }
+#hud-title .ic { width: 16px; height: 16px; vertical-align: -3px; }
+.chip {
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
+  white-space: nowrap;
+  color: var(--ink-body);
+}
+.chip.level-chip { display: inline-flex; align-items: center; gap: 6px; }
+.xp-bar { display: inline-block; width: 64px; height: 8px; border: 2px solid var(--ink); background: #fff; vertical-align: middle; }
+.xp-bar > span { display: block; height: 100%; background: var(--purple); transition: width .5s ease; }
+.mute-btn { cursor: pointer; font-family: inherit; padding: 4px 8px; }
+.mute-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+
+/* stat meters — one column, each bar its own colour, numeric values */
+#meters { display: flex; flex-direction: column; gap: 8px; background: #fff; border: 3px solid var(--ink); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); padding: 10px 12px; }
+#meters .meter-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+#meters .meter-label { width: 76px; flex: none; color: var(--ink-body); font-weight: 800; }
+#meters .meter { flex: 1; height: 12px; background: var(--bar-bg); border: 2px solid var(--ink); border-radius: 0; overflow: hidden; }
+#meters .meter > div { height: 100%; transition: width .5s ease; }
+#meters .meter.low > div { background: var(--bar-low); }
+#bar-hunger { background: var(--orange); }
+#bar-happiness { background: var(--green); }
+#bar-energy { background: var(--gold); }
+#bar-cleanliness { background: var(--blue); }
+#bar-affection { background: var(--heart); }
+.meter-val { width: 58px; flex: none; text-align: right; font-weight: 800; color: var(--ink-body); font-variant-numeric: tabular-nums; }
+
+/* stage — a framed pixel room, not a blank canvas. 720x560: the stage is
+   SHORTER than square so the phone stage can span the full column width
+   and still fit the resting viewport. */
+#stage-wrap { position: relative; width: 100%; max-width: 420px; margin: 0 auto; aspect-ratio: 720 / 560; border: 3px solid var(--ink); border-radius: 0; box-shadow: 5px 5px 0 var(--ink); background: #ffe9f3; }
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* speech bubble — ABOVE the head, pointer down to the head, never over the body */
+#speech-bubble {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  bottom: auto;
+  transform: translateX(-50%) translateY(-8px);
+  max-width: 88%;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.7;
+  text-align: center;
+  box-shadow: 3px 3px 0 var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index: 5;
+}
+#speech-bubble.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -11px;
+  left: 50%;
+  margin-left: -8px;
+  border: 8px solid transparent;
+  border-top-color: var(--ink);
+  border-bottom: 0;
+}
+#coin-float {
+  position: absolute;
+  top: auto;
+  bottom: 92px; /* above the checker floor, clear of the poster (top-right) */
+  right: 12px;
+  font-weight: 800;
+  color: var(--gold-text);
+  font-size: 15px;
+  background: #fff;
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity .3s, transform 1s;
+  z-index: 6;
+  pointer-events: none;
+}
+#coin-float.show { opacity: 1; transform: translateY(-18px); }
+
+/* sleep dim */
+#sleep-veil {
+  position: fixed; inset: 0;
+  background: rgba(20, 10, 30, .55);
+  z-index: 40;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 18vh;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+body.sleeping #sleep-veil { display: flex; }
+body.sleeping #stage-wrap { filter: brightness(.45) saturate(.7); }
+
+/* action bar — 5 buttons; 3x2 grid on phones so nothing squeezes */
+#actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.act-btn {
+  border: 3px solid var(--ink);
+  background: #fff;
+  border-radius: 0;
+  padding: 8px 2px 6px;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.act-btn small { display: block; font-size: 12px; margin-top: 4px; color: var(--ink-body); font-weight: 800; }
+.act-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.act-btn:disabled { opacity: .45; }
+
+/* popups (feed menu / shop) */
+.popup {
+  position: fixed; inset: 0;
+  background: rgba(26, 26, 26, .5);
+  z-index: 50;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.popup.show { display: flex; }
+.popup-card {
+  width: 100%; max-width: 480px;
+  background: var(--pink-bg2);
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--ink);
+  padding: 14px 14px 20px;
+  margin: 0 8px 8px;
+}
+.popup-card h2 { font-size: 16px; margin-bottom: 10px; text-align: center; }
+.popup-card .close { float: left; border: none; background: none; font-size: 20px; cursor: pointer; color: var(--ink-soft); }
+.menu-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.menu-item {
+  flex: 1;
+  border: 3px solid var(--ink);
+  background: #fff;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 10px 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.7;
+}
+.menu-item:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.menu-item .price { color: var(--gold-text); font-size: 12px; }
+.menu-item.locked { opacity: .65; }
+.menu-item:disabled { opacity: .45; }
+
+/* mini-game overlay — overflow hidden is the safety net: the canvas must
+   never paint outside the stage, whatever its backing size is */
+#minigame-overlay {
+  position: absolute; inset: 0;
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  background: rgba(255, 233, 243, .85);
+  border-radius: 0;
+  overflow: hidden;
+}
+#minigame-overlay.show { display: flex; }
+#minigame-top { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; font-weight: 800; font-size: 15px; }
+/* timer + score sit in matching white/black-bordered pixel HUD pills ON
+   TOP of the playfield — the old bare text read as a microscopic dot
+   (score) and stars spawned clipped in half behind the timer. */
+#minigame-top > span { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 8px; }
+#minigame-exit { background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 2px 6px; cursor: pointer; font-family: inherit; line-height: 1; }
+#minigame-exit:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+#minigame-exit .ic { width: 18px; height: 18px; vertical-align: -3px; }
+/* instruction bubble INSIDE the overlay, above the scrim — the old
+   sayBubble() line sat behind the overlay and read as ghost-gray text. */
+#minigame-instructions { margin: 0 10px 6px; background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 6px 10px; font-weight: 800; font-size: 14px; text-align: center; }
+/* v8: the banner auto-dismisses ~2.5s into the round (see game.js) so it
+   stops blocking the top drop zone — display:none frees the space and the
+   canvas backing is re-sized to match (window resize dispatch). */
+#minigame-instructions.gone { display: none; }
+/* min-height: 0 is ESSENTIAL: without it the canvas keeps its intrinsic
+   height (from the width/height attributes) and overflows the overlay —
+   in v4/v5 the canvas rendered 598px tall inside a 463px overlay, so
+   falling stars painted below the footer. */
+#minigame-canvas { flex: 1; min-height: 0; width: 100%; touch-action: none; image-rendering: pixelated; }
+
+/* chat — a real chat: message history + scroll, high-contrast send */
+#chat-box {
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 10px;
+}
+#chat-log-wrap {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  max-height: 150px;
+  margin-bottom: 8px;
+}
+#chat-log {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  font-size: 13.5px;
+  line-height: 1.9;
+  padding: 2px;
+  /* the native scrollbar is hidden on purpose: headless Chromium paints
+     overlay scrollbars that never show in a static screenshot, so the
+     log gets a CUSTOM pixel scrollbar (see #chat-scrollbar) that is
+     always visible while the log overflows. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#chat-log::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* custom pixel scrollbar — a white track with a black border and a solid
+   black thumb, always visible while the log overflows (JS sizes and
+   positions the thumb, and it drags + track-clicks like a real one). */
+#chat-scrollbar {
+  flex: none;
+  width: 12px;
+  background: #fff;
+  border: 2px solid var(--ink);
+  position: relative;
+  display: none;
+  cursor: pointer;
+  margin-left: 6px;
+}
+#chat-scrollbar.show { display: block; }
+#chat-scrollbar-thumb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  min-height: 22px;
+  background: var(--ink);
+  cursor: grab;
+}
+#chat-scrollbar-thumb:active { cursor: grabbing; }
+/* bubbles shrink-wrap to their content (max 82%) and anchor to opposite
+   sides — user right, Astolfo left — so the speaker is unmistakable. */
+#chat-log .msg { width: fit-content; max-width: 82%; margin-bottom: 6px; padding: 6px 10px; border: 2px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--ink); }
+#chat-log .msg.me { color: var(--ink-body); background: #fff; margin-left: auto; margin-right: 0; }
+#chat-log .msg.astolfo { font-weight: 700; background: var(--pink-soft); margin-right: auto; margin-left: 0; }
+#chat-log .msg.sys { color: var(--gold-text); font-size: 12px; border: none; background: none; text-align: center; padding: 2px 6px; }
+#chat-row { display: flex; gap: 8px; }
+#chat-input {
+  flex: 1;
+  min-width: 0;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  padding: 9px 10px;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+}
+#chat-input:focus { border-color: var(--pink-accent); box-shadow: 3px 3px 0 var(--ink); }
+#chat-send {
+  border: 3px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 0 18px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+#chat-send:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+#chat-send:disabled { opacity: .5; }
+
+footer { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink-body); padding: 8px 0; background: #fff; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+
+/* phone: 5-across icon strip (no 3x2 grid hole), compressed stage so the
+   whole resting view fits, one-row HUD */
+@media (max-width: 640px) {
+  #app { gap: 8px; padding: 8px 10px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  #hud { gap: 6px; padding: 5px 8px; }
+  #hud-title { display: none; } /* phone header stays the tight chip row */
+  /* v7: with the title hidden the chips are the only child — flex:1 +
+     space-between spreads them edge-to-edge across the bar. v6 clustered
+     them right and left a ~55px empty white hole on the left. */
+  #hud-chips { flex: 1; gap: 6px; justify-content: space-between; }
+  .chip { padding: 3px 7px; font-size: 12px; }
+  .xp-bar { width: 40px; }
+  #meters { padding: 8px 10px; gap: 6px; }
+  #meters .meter-row { font-size: 12px; }
+  /* the stage spans the EXACT full column width as the cards above and
+     below it — no more pinched narrower stage box */
+  #stage-wrap { width: 100%; max-width: none; }
+  /* smaller bubble on the short phone stage so its pointer clears the hair */
+  #speech-bubble { font-size: 12px; padding: 5px 9px; top: 4px; }
+  #actions { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .act-btn { padding: 6px 1px 5px; }
+  .act-btn .ic-lg { width: 26px; height: 26px; }
+  .act-btn small { font-size: 10px; margin-top: 3px; }
+  #chat-log-wrap { max-height: 150px; }
+  body.typing #stage-wrap { max-width: 200px; }
+  /* the bubble would cover the whole shrunken stage — hide it while typing */
+  body.typing #speech-bubble { display: none; }
+}
+
+/* very short screens (e.g. 360x640): squeeze harder so the chat input
+   still fits without being sliced. The stage stays full-width; the footer
+   is dropped here to buy the last few pixels. */
+@media (max-width: 640px) and (max-height: 700px) {
+  #app { gap: 5px; padding: 6px 8px 4px; }
+  #meters { padding: 6px 8px; gap: 4px; }
+  #meters .meter-row { font-size: 11px; }
+  #chat-log-wrap { max-height: 40px; }
+  .act-btn { padding: 4px 1px 4px; }
+  footer { display: none; }
+}
+
+/* desktop: fill the width — framed stage left, panel right.
+   The chat row is 1fr so ALL slack goes into the chat log: no dead gaps
+   in the left column, chat bottom flush with the stage bottom. */
+@media (min-width: 900px) {
+  #app {
+    max-width: 1060px;
+    min-height: auto; /* size to content: the 1fr chat row must NOT stretch
+      the stage past square (the canvas is 720x720 — a taller box would
+      stretch the sprite vertically) */
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-areas:
+      "hud hud"
+      "stage meters"
+      "stage actions"
+      "stage chat"
+      "footer footer";
+    gap: 14px;
+    align-items: stretch;
+    padding: 20px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+  #hud { grid-area: hud; justify-content: space-between; flex-wrap: nowrap; }
+  #meters { grid-area: meters; }
+  /* align-self:start: the wrap keeps its 720/560 aspect even if the chat
+     column ever grows — a misaligned bottom is a far better failure mode
+     than a vertically stretched sprite. (The log cap below is what keeps
+     the columns flush in practice.) */
+  #stage-wrap { grid-area: stage; max-width: none; align-self: start; }
+  #actions { grid-area: actions; }
+  #chat-box { grid-area: chat; display: flex; flex-direction: column; }
+  /* CAP the desktop log: without it, a longer conversation grows the grid
+     container and stretches the stage (469 -> 519px, ~11% vertical sprite
+     distortion, caught in v5 verification). The log scrolls internally. */
+  #chat-log-wrap { flex: 1; min-height: 0; max-height: 150px; }
+  footer {
+    grid-area: footer;
+    font-size: 13px;
+  }
+}

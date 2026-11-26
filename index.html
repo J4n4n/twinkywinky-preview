@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+<title>آستولفو — twinkywinky.org</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div id="hud-chips">
+      <span class="chip level-chip"><img class="ic" src="assets/icons/star.png" alt=""> سطح <b id="level-val">۱</b><span class="xp-bar"><span id="bar-level" style="width:0%"></span></span></span>
+      <span class="chip"><img class="ic" src="assets/icons/coin.png" alt=""> <b id="coins-val">۲۰</b></span>
+      <span class="chip"><span id="mood-val"><img class="ic" src="assets/icons/face-happy.png" alt=""> شاد</span></span>
+      <span class="chip" id="cake-count"></span>
+    </div>
+    <span id="hud-title">آستولفو <img class="ic" src="assets/icons/star-pink.png" alt=""></span>
+  </div>
+
+  <div id="meters">
+    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/drumstick.png" alt=""> گرسنگی</span><div class="meter"><div id="bar-hunger" style="width:80%"></div></div><span class="meter-val" id="val-hunger">۸۰/۱۰۰</span></div>
+    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/face-happy.png" alt=""> شادی</span><div class="meter"><div id="bar-happiness" style="width:80%"></div></div><span class="meter-val" id="val-happiness">۸۰/۱۰۰</span></div>
+    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/bolt.png" alt=""> انرژی</span><div class="meter"><div id="bar-energy" style="width:80%"></div></div><span class="meter-val" id="val-energy">۸۰/۱۰۰</span></div>
+    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/duck.png" alt=""> تمیزی</span><div class="meter"><div id="bar-cleanliness" style="width:80%"></div></div><span class="meter-val" id="val-cleanliness">۸۰/۱۰۰</span></div>
+    <div class="meter-row"><span class="meter-label"><img class="ic" src="assets/icons/heart.png" alt=""> محبت</span><div class="meter"><div id="bar-affection" style="width:0%"></div></div><span class="meter-val" id="val-affection">۰/۲۰</span></div>
+  </div>
+
+  <div id="stage-wrap">
+    <canvas id="stage" width="720" height="560"></canvas>
+    <div id="speech-bubble"></div>
+    <div id="coin-float"></div>
+    <div id="minigame-overlay">
+      <div id="minigame-top"><span><img class="ic" src="assets/icons/sparkle.png" alt=""> <b id="minigame-score">۰</b></span><span><img class="ic" src="assets/icons/clock.png" alt=""> <b id="minigame-time">۳۰</b></span><button id="minigame-exit" title="خروج از بازی"><img class="ic" src="assets/icons/x.png" alt=""></button></div>
+      <div id="minigame-instructions">ستاره‌ها رو بگیر! ۳۰ ثانیه!</div>
+      <canvas id="minigame-canvas" width="720" height="560"></canvas>
+    </div>
+  </div>
+
+  <div id="actions">
+    <button class="act-btn" data-action="feed"><img class="ic-lg" src="assets/icons/cake.png" alt=""><small>غذا</small></button>
+    <button class="act-btn" data-action="play"><img class="ic-lg" src="assets/icons/gamepad.png" alt=""><small>بازی</small></button>
+    <button class="act-btn" data-action="sleep"><img class="ic-lg" src="assets/icons/moon.png" alt=""><small>خواب</small></button>
+    <button class="act-btn" data-action="clean"><img class="ic-lg" src="assets/icons/duck.png" alt=""><small>حموم</small></button>
+    <button class="act-btn" data-action="shop"><img class="ic-lg" src="assets/icons/bag.png" alt=""><small>فروشگاه</small></button>
+  </div>
+
+  <div id="chat-box">
+    <div id="chat-log-wrap">
+      <div id="chat-log">
+        <div class="msg astolfo">یاهو! سلام! من آستولفوم — باهام حرف بزن یا نازم کن!</div>
+      </div>
+      <div id="chat-scrollbar" aria-hidden="true"><div id="chat-scrollbar-thumb"></div></div>
+    </div>
+    <div id="chat-row">
+      <input id="chat-input" type="text" placeholder="به آستولفو چیزی بگو..." autocomplete="off">
+      <button id="chat-send">بفرست</button>
+    </div>
+  </div>
+
+  <footer>آستولفو — شوالیه‌ی تو <img class="ic" src="assets/icons/star-pink.png" alt=""></footer>
+</div>
+
+<div id="sleep-veil"><img class="ic" src="assets/icons/moon.png" alt=""> خوابه... بزن بیدارش کن</div>
+
+<div class="popup" id="feed-menu">
+  <div class="popup-card">
+    <button class="close" data-close="feed-menu"><img class="ic" src="assets/icons/x.png" alt=""></button>
+    <h2><img class="ic" src="assets/icons/cake.png" alt=""> چی بدم بخوره؟</h2>
+    <div class="menu-row">
+      <button class="menu-item" data-feed="snack"><img class="ic" src="assets/icons/cookie.png" alt=""> اسنک<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ۵</span></button>
+      <button class="menu-item" data-feed="meal"><img class="ic" src="assets/icons/meal.png" alt=""> غذای کامل<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ۱۵</span></button>
+      <button class="menu-item" data-feed="drink"><img class="ic" src="assets/icons/drink.png" alt=""> نوشیدنی<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ۸</span></button>
+    </div>
+    <div class="menu-row">
+      <button class="menu-item" data-feed="cake" id="cake-item"><img class="ic" src="assets/icons/cake.png" alt=""> کیک<br><span class="price">از فروشگاه</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="popup" id="shop-modal">
+  <div class="popup-card">
+    <button class="close" data-close="shop-modal"><img class="ic" src="assets/icons/x.png" alt=""></button>
+    <h2><img class="ic" src="assets/icons/bag.png" alt=""> فروشگاه</h2>
+    <div id="shop-list"></div>
+  </div>
+</div>
+
+<script src="game.js"></script>
+<script src="rig.js"></script>
+<script src="chat.js"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+
+  // Action buttons
+  document.querySelectorAll('[data-action]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var a = btn.getAttribute('data-action');
+      if (a === 'feed') { $('feed-menu').classList.add('show'); }
+      else if (a === 'play') { window.Game.startMiniGame(); requestAnimationFrame(sizeMiniGame); }
+      else if (a === 'sleep') { window.Game.toggleSleep(); }
+      else if (a === 'clean') { window.Game.clean(); }
+      else if (a === 'shop') { renderShop(); $('shop-modal').classList.add('show'); }
+    });
+  });
+  document.querySelectorAll('[data-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () { $(btn.getAttribute('data-close')).classList.remove('show'); });
+  });
+  document.querySelectorAll('.popup').forEach(function (p) {
+    p.addEventListener('click', function (e) { if (e.target === p) p.classList.remove('show'); });
+  });
+  document.querySelectorAll('[data-feed]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (window.Game.feed(btn.getAttribute('data-feed'))) $('feed-menu').classList.remove('show');
+    });
+  });
+  $('sleep-veil').addEventListener('click', function () { window.Game.wake(); });
+
+  // Shop rendering
+  function renderShop() {
+    var list = $('shop-list');
+    list.innerHTML = '';
+    window.Game.SHOP.forEach(function (item) {
+      var owned = window.Game.state.owned.indexOf(item.id) !== -1;
+      var locked = window.Game.state.level < item.level;
+      var row = document.createElement('div');
+      row.className = 'menu-row';
+      var b = document.createElement('button');
+      b.className = 'menu-item' + (locked ? ' locked' : '');
+      var label = '<img class="ic" src="assets/icons/' + item.icon + '" alt=""> ' + item.fa + '<br><span class="price"><img class="ic" src="assets/icons/coin.png" alt=""> ' + window.Game.toFaDigits(item.price) + '</span>';
+      if (locked) label += '<br><span><img class="ic" src="assets/icons/lock.png" alt=""> سطح ' + window.Game.toFaDigits(item.level) + '</span>';
+      else if (owned && !item.consumable) label += '<br><span><img class="ic" src="assets/icons/check.png" alt=""> خریده شده — بزن بپوشه</span>';
+      else if (item.consumable && window.Game.state.cake > 0) label += '<br><span><img class="ic" src="assets/icons/cake.png" alt="">×' + window.Game.toFaDigits(window.Game.state.cake) + ' داری</span>';
+      b.innerHTML = label;
+      b.disabled = locked;
+      b.addEventListener('click', function () {
+        if (window.Game.buy(item.id)) renderShop();
+      });
+      row.appendChild(b);
+      list.appendChild(row);
+    });
+  }
+
+  // Chat wiring (chat.js provides window.Chat.send)
+  function sendChat() {
+    var input = $('chat-input');
+    var text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    if (window.Chat) window.Chat.send(text);
+  }
+  $('chat-send').addEventListener('click', sendChat);
+  $('chat-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendChat(); });
+  // While the on-screen keyboard is open, shrink the stage so Astolfo stays visible.
+  $('chat-input').addEventListener('focus', function () {
+    document.body.classList.add('typing');
+    $('chat-box').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+  $('chat-input').addEventListener('blur', function () { document.body.classList.remove('typing'); });
+
+  // Mini-game canvas sizing + taps
+  var mgc = $('minigame-canvas');
+  function sizeMiniGame() {
+    var r = mgc.getBoundingClientRect();
+    mgc.width = Math.max(320, Math.round(r.width * (window.devicePixelRatio || 1)));
+    mgc.height = Math.max(320, Math.round(r.height * (window.devicePixelRatio || 1)));
+  }
+  window.addEventListener('resize', sizeMiniGame);
+  mgc.addEventListener('pointerdown', function (e) { window.Game.miniGameTap(e.clientX, e.clientY); });
+  $('minigame-exit').addEventListener('click', function () { window.Game.quitMiniGame(); });
+
+  // Boot
+  window.addEventListener('load', function () {
+    sizeMiniGame();
+    window.Game.render();
+    window.Game.startIdleLines();
+    if (window.Rig) window.Rig.init();
+    if (window.Chat) window.Chat.init();
+    requestAnimationFrame(function () { window.Game.miniGameFrame(0.016); });
+  });
+})();
+</script>
+</body>
+</html>

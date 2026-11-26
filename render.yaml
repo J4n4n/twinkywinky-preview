@@ -1,0 +1,15 @@
+# Render Blueprint for the Astolfo in-site chat proxy (temp preview).
+# Deploy via the Render dashboard: New > Blueprint, point it at the
+# twinkywinky-preview repo. The GEMINI_API_KEY value is NEVER in this
+# file — Render prompts for it at deploy time (sync: false).
+services:
+  - type: web
+    name: twinkywinky-chat
+    env: python
+    rootDir: server
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn chat_api:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false

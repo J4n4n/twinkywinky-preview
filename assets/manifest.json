@@ -1,0 +1,304 @@
+{
+  "source": "avatars/avatar-1795635002093617527-0.webp (NOT modified)",
+  "canvas": {
+    "w": 1600,
+    "h": 1600
+  },
+  "layers": [
+    {
+      "file": "backhair.png",
+      "canvas": [
+        1600,
+        1600
+      ],
+      "bbox": {
+        "x": 484,
+        "y": 340,
+        "w": 633,
+        "h": 166
+      },
+      "pixels": 27043
+    },
+    {
+      "file": "body.png",
+      "canvas": [
+        1600,
+        1600
+      ],
+      "bbox": {
+        "x": 303,
+        "y": 490,
+        "w": 994,
+        "h": 1110
+      },
+      "pixels": 821292
+    },
+    {
+      "file": "head.png",
+      "canvas": [
+        1600,
+        1600
+      ],
+      "bbox": {
+        "x": 474,
+        "y": 0,
+        "w": 652,
+        "h": 721
+      },
+      "pixels": 245807
+    },
+    {
+      "file": "head_closed.png",
+      "canvas": [
+        1600,
+        1600
+      ],
+      "bbox": {
+        "x": 474,
+        "y": 0,
+        "w": 652,
+        "h": 721
+      },
+      "pixels": 245807,
+      "note": "head.png with eyes replaced by closed \u2229 arcs (arc colour (0,0,0), width 3px)"
+    },
+    {
+      "file": "head_sleepy.png",
+      "canvas": [
+        1600,
+        1600
+      ],
+      "bbox": {
+        "x": 474,
+        "y": 0,
+        "w": 652,
+        "h": 721
+      },
+      "pixels": 245807,
+      "note": "head.png with eyes half-closed (lid at 60% of eye height, lower iris slit kept)"
+    },
+    {
+      "file": "blush.png",
+      "canvas": [
+        1600,
+        1600
+      ],
+      "bbox": {
+        "x": 682,
+        "y": 410,
+        "w": 237,
+        "h": 37
+      },
+      "pixels": 1388
+    }
+  ],
+  "stack_order_top_to_bottom": [
+    "head.png",
+    "body.png",
+    "backhair.png"
+  ],
+  "neck_pivot": {
+    "x": 800,
+    "y": 515
+  },
+  "eyes": {
+    "left": {
+      "x": 688,
+      "y": 304,
+      "w": 63,
+      "h": 60
+    },
+    "right": {
+      "x": 859,
+      "y": 301,
+      "w": 71,
+      "h": 63
+    },
+    "left_centre": {
+      "x": 719,
+      "y": 334
+    },
+    "right_centre": {
+      "x": 894,
+      "y": 332
+    },
+    "outline_colour": [
+      0,
+      0,
+      0
+    ],
+    "skin_fill": [
+      253,
+      238,
+      232
+    ]
+  },
+  "head_bbox": {
+    "x": 474,
+    "y": 0,
+    "w": 652,
+    "h": 721
+  },
+  "braids": {
+    "left": {
+      "x": 588,
+      "y": 506,
+      "w": 115,
+      "h": 215
+    },
+    "right": {
+      "x": 898,
+      "y": 506,
+      "w": 114,
+      "h": 215
+    },
+    "bottom_y": 720,
+    "hair_bottom_y": 711,
+    "note": "bbox includes bow wings and braid-tip outline to y720; pink hair itself ends y711"
+  },
+  "choker": {
+    "band_y": [
+      524,
+      556
+    ],
+    "pendant_y": [
+      556,
+      612
+    ],
+    "band_x": [
+      710,
+      890
+    ]
+  },
+  "body_bbox": {
+    "x": 303,
+    "y": 490,
+    "w": 994,
+    "h": 1110
+  },
+  "backhair_bbox": {
+    "x": 484,
+    "y": 340,
+    "w": 633,
+    "h": 166
+  },
+  "cheeks": {
+    "left": {
+      "x": 712,
+      "y": 428
+    },
+    "right": {
+      "x": 888,
+      "y": 428
+    },
+    "rx": 30,
+    "ry": 18,
+    "colour": [
+      255,
+      150,
+      175
+    ],
+    "alpha": 140
+  },
+  "landmarks_measured": {
+    "hair_top_y": 0,
+    "hair_top_note": "hair is cropped by the canvas top edge (dark outline x721-879 at y=0)",
+    "head_hair_y": "0-505",
+    "chin_bottom_y": 505,
+    "neck_y": "505-530",
+    "braids_y": "~470-720",
+    "braid_bottom_y": 720,
+    "choker_y": "524-556",
+    "choker_pendant_y": "556-612",
+    "hoodie_y": "510-1105",
+    "hoodie_collar_top_y": 510,
+    "hoodie_hem_shading_y": "1010-1060",
+    "hoodie_white_band_y": "1060-1105",
+    "midriff_skin_y": "1110-1140",
+    "midriff_skin_x": [
+      710,
+      895
+    ],
+    "shorts_y": "1110-1535",
+    "shorts_waistband_top_y": 1110,
+    "shorts_bottom_hem_y": 1535,
+    "hands_y": "1409-1567",
+    "hands": {
+      "left": {
+        "x": 360,
+        "y": 1416,
+        "w": 96,
+        "h": 152
+      },
+      "right": {
+        "x": 1145,
+        "y": 1409,
+        "w": 95,
+        "h": 159
+      }
+    },
+    "legs_y": "1536-1599 (cut at canvas bottom)",
+    "legs": {
+      "left": {
+        "x": 560,
+        "y": 1536,
+        "w": 184,
+        "h": 64
+      },
+      "right": {
+        "x": 856,
+        "y": 1536,
+        "w": 184,
+        "h": 64
+      }
+    },
+    "character_bbox": {
+      "x": 303,
+      "y": 0,
+      "w": 994,
+      "h": 1600
+    },
+    "gold_star_clips": {
+      "left_x": [
+        637,
+        681
+      ],
+      "left_y": [
+        155,
+        225
+      ],
+      "right_x": [
+        933,
+        990
+      ],
+      "right_y": [
+        155,
+        200
+      ]
+    },
+    "pixel_grid_note": "background is a faint 8px checker (values 240-255); underlying art grid is 8px blocks; no resampling was done"
+  },
+  "fill_method": "body regions hidden behind head filled by nearest whitelist body pixel within 18px (scipy EDT); farther pixels get the flat zone default (white hoodie, neck skin x690-910 above y560). Fill source is a whitelist of body colours only (hoodie white/grey, skin, dark outlines), so no braid/hair colour can leak; dark outlines continue at most 18px, never smear across a braid.",
+  "backhair_note": "No hair is visible behind the torso/arms below y505 in the source (bob ends above the shoulders; only braids hang in front). backhair = outer bob flare: hair/shading/outline in side bands x<=630 / x>=970, y340-505. Seam is a straight band edge through solid hair at y340/x630/x970.",
+  "composite_check": {
+    "char_region_max_diff": 0,
+    "char_region_frac_px_diff": 0.0,
+    "full_image_max_diff": 15,
+    "full_image_frac_px_gt0": 0.1075484375,
+    "head_closed_char_region_diff_px": 8914,
+    "head_closed_diff_bbox": {
+      "x": 684,
+      "y": 295,
+      "w": 250,
+      "h": 73
+    },
+    "head_sleepy_char_region_diff_px": 5926,
+    "head_sleepy_diff_bbox": {
+      "x": 684,
+      "y": 295,
+      "w": 250,
+      "h": 46
+    },
+    "note": "full-image diff is only the source background checker (240-255) vs pure-white composite background; character pixels are exact"
+  }
+}

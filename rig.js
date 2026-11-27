@@ -67,12 +67,12 @@
   var PARTS = [
     'backhair', 'blush', 'head', 'head_closed', 'head_sleep', 'head_frown', 'head_happy',
     'braid_upper_L', 'braid_upper_R', 'braid_lower_L', 'braid_lower_R',
-    'torso', 'upperarm_L', 'upperarm_R', 'forearm_L', 'forearm_R',
+    'torso_upper', 'torso_lower', 'upperarm_L', 'upperarm_R', 'forearm_L', 'forearm_R',
     'hand_open_L', 'hand_open_R', 'hand_holding_L', 'hand_holding_R', 'hand_fist_L', 'hand_fist_R',
     'thigh_L', 'thigh_R', 'shin_L', 'shin_R', 'boot_L', 'boot_R', 'book', 'sleep_lying'
   ];
   var SIDE_PARTS = [
-    'side_head', 'side_braid', 'side_backhair', 'side_torso',
+    'side_head', 'side_braid', 'side_backhair', 'side_torso_upper', 'side_torso_lower',
     'side_upperarm', 'side_upperarm_far', 'side_forearm', 'side_forearm_far',
     'side_hand_open', 'side_hand_open_far', 'side_thigh', 'side_thigh_far',
     'side_shin', 'side_shin_far', 'side_boot', 'side_boot_far'
@@ -164,7 +164,7 @@
   var IK_HIPS_Y = 1230, THIGH_LEN = 345, SHIN_LEN = 160;
 
   // ---------------- state ----------------
-  var canvas = null, ctx = null, dpr = 1;
+  var canvas = null, ctx = null, dpr = 1, fitCanvas = null;
   var mode = 'front';           // 'front' | 'side' | 'sleep'
   var facing = 1;               // side view: +1 facing right, -1 facing left
   var charX = HOME_X, groundY = GROUND_Y;
@@ -342,6 +342,11 @@
     }
     // Braid lag: follows head with a delay (phase-shifted sine of breath).
     p.braidA = Math.sin(t * 2 * Math.PI / 3.0 - 0.6) * 2 * amp;
+    // Torso sway with the breath (rig v2): the chest rolls a touch and the
+    // arms hang looser, so the idle is a body breathing, not a static cutout.
+    p.ang.chest = breath * 2 * amp;
+    p.ang.shoulder_L = breath * 2 * amp;
+    p.ang.shoulder_R = -breath * 2 * amp;
     if (dancing) {
       p.ang.hips = Math.sin(t * 2 * Math.PI / 0.9) * 4;
       p.ang.chest = Math.sin(t * 2 * Math.PI / 0.9) * 5;
@@ -452,6 +457,18 @@
     }
     p.ang.chest = ws.carrying ? 6 : 3;
     p.ang.head = -2;
+    // Secondary motion (rig v2) — a body, not a sliding cutout:
+    // hips sway with the stride, chest counter-rotates, head stabilises
+    // against the chest, and the whole body squashes at foot contact and
+    // stretches at the passing step (volume-preserving, about the ground).
+    var sway = Math.sin(cyc);
+    p.ang.hips = sway * 4;
+    p.ang.chest = (ws.carrying ? 6 : 3) - sway * 3;
+    p.ang.head = -2 - sway * 2;
+    var sq = Math.sin(stepFrac * Math.PI);            // 0 contact, 1 passing
+    var ct = Math.cos(stepFrac * Math.PI);
+    p.scaleY = 1 + 0.02 * sq - 0.03 * ct * ct;
+    p.scaleX = 1 - (p.scaleY - 1) * 0.7;
     // Backhair is a child of root: give it a small lagged sway so it never
     // floats in mid-air where the head used to be (bend) or lags the body.
     p.ang.backhair = Math.sin(cyc - 0.6) * 4;
@@ -513,8 +530,13 @@
     drawPart(IMG.thigh_L, BONES_F.thigh_L.bind, world.thigh_L);
     drawPart(IMG.shin_L, BONES_F.knee_L.bind, world.knee_L);
     drawPart(IMG.boot_L, BONES_F.ankle_L.bind, world.ankle_L);
-    // torso with breathing scale
-    drawPart(IMG.torso, BONES_F.chest.bind, world.chest, { sx: 1, sy: chestSY });
+    // Two-segment spine (rig v2): the waist+shorts ride the SPINE bone and the
+    // hoodie rides the CHEST bone, so a bend CURVES (spine 10 + chest 8) instead
+    // of hinging the whole torso as one rigid slab around the chest pivot.
+    // The two images are complementary cuts of the old torso.png (20px overlap
+    // at y 1090-1110), so the bind pose is pixel-identical to before.
+    drawPart(IMG.torso_lower, BONES_F.spine.bind, world.spine);
+    drawPart(IMG.torso_upper, BONES_F.chest.bind, world.chest, { sx: 1, sy: chestSY });
     drawEquipped('outfit');
     if (arms) { armSet('L'); armSet('R'); } else { armSet('R'); armSet('L'); }
     // braids: upper/lower chains, lag angle applied to lower segment
@@ -547,7 +569,10 @@
     drawPart(IMG.side_upperarm_far, BONES_S.shoulder_F.bind, world.shoulder_F);
     drawPart(IMG.side_forearm_far, BONES_S.elbow_F.bind, world.elbow_F);
     drawPart(IMG.side_hand_open_far, BONES_S.wrist_F.bind, world.wrist_F);
-    drawPart(IMG.side_torso, BONES_S.chest.bind, world.chest, { sx: 1, sy: pose.chestSY || 1 });
+    // Two-segment spine (rig v2): waist+shorts on the spine bone, hoodie on
+    // the chest bone — the side torso curves in the bend instead of hinging.
+    drawPart(IMG.side_torso_lower, BONES_S.spine.bind, world.spine);
+    drawPart(IMG.side_torso_upper, BONES_S.chest.bind, world.chest, { sx: 1, sy: pose.chestSY || 1 });
     if (legs) {
       var n = legs.near;
       drawPartAt(IMG.side_thigh, n.hip.x, n.hip.y, n.thighA);
@@ -639,7 +664,7 @@
     if (!im) return;
     var breath = Math.sin((t % 4.0) / 4.0 * 2 * Math.PI); // 4.0s breathing loop
     var sy = 1 + breath * 0.008;
-    var dw = 300, dh = dw * 260 / 1280;
+    var dw = 340, dh = dw * 260 / 1280;
     var dx = 195 - dw / 2, dy = 566 - dh;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.save();
@@ -763,42 +788,19 @@
     var keys = [
       { t: 0.00, v: { face: 'head', ang: {} }, e: 'lin' },
       { t: 0.10, v: { face: 'head', ang: { head: -8, chest: 4 }, hipsDy: 12 }, e: 'out' },       // anticipation
-      // Deep squat pick-up, REVISED x2 (fix round 2, 2026-11-27): torso pitch
-      // 18deg (spine 18 + chest 0) + hips 278. The old 60deg pitch made
-      // the black shorts — painted on the side_torso image below the chest
-      // pivot — swing out horizontally behind her like a black plank
-      // (verified: the slab's buckle/stripe match side_torso.png's shorts,
-      // and its draw-log quad lands exactly on the slab; it was never the
-      // far shin). 40deg still left a 45deg black bar and 30deg a 65deg
-      // one, so the pitch dropped to 25deg. Fix round 2 softened it further
-      // to 18deg + head 10deg (world 28deg, not 45deg): at 45deg the side
-      // face/eye rotated away under the hair and the head read as a
-      // featureless pink slab in the frozen frame. The shoulder_N angle
-      // deepens to -30 so the arm still reaches forward-down to the book
-      // (world arm angle -12deg) after the shoulder moves back with the
-      // smaller pitch. The far arm tucks (shoulder_F 5, not 25) so it never
-      // reads as a detached limb, and backhairDy drops 745 -> 300 so the
-      // backhair stays attached to the head instead of swinging out as a
-      // separate pink slab. Fix round 2b: the slab STILL floated ~25 screen
-      // px behind the head (verified in the frozen bend frame) because Dy
-      // only drops it — the head also swings ~120 composite px forward,
-      // which Dy cannot follow. So backhairDx +120 shifts it forward in
-      // facing coords (toward the book, whichever way she faces) and the
-      // rise key lerps Dx back to 70 (not 0 — the head is still pitched
-      // ~14deg at the rise, so the hair must stay ~70px forward to touch
-      // it) and to 0 at the settle, instead of snapping. The far
-      // forearm is pinned too: elbow_F was missing from the bend/grasp
-      // keys, and sampleKeys gives a bone that is only in the NEXT key
-      // that key's value for the whole segment — so elbow_F snapped to the
-      // rise key's -115 at the grasp, swinging the far forearm out
-      // horizontal at waist height like a detached grey plank. elbow_F -5
-      // in the bend/grasp keys keeps the far arm hanging down, and it
-      // lerps to -115 during the rise. The deeper squat (hips 278) keeps
-      // the shoulder low; the near knee ends ~12px above the rug.
-      { t: 0.35, v: { face: 'head', ang: { spine: 18, chest: 0, head: 10, shoulder_N: -30, elbow_N: -5, shoulder_F: 5, elbow_F: -5, backhair: 25 }, hipsDy: 278, backhairDy: 300, backhairDx: 120 }, e: 'in' }, // bend
-      { t: 0.45, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 18, chest: 0, head: 10, shoulder_N: -30, elbow_N: -5, shoulder_F: 5, elbow_F: -5, backhair: 25 }, hipsDy: 278, backhairDy: 300, backhairDx: 120 }, e: 'lin' }, // grasp
+      // Deep squat pick-up, REVISED x4 (rig v6, 2026-11-27): the torso is now
+      // TWO segments (waist on the spine bone, hoodie on the chest bone), so
+      // the bend CURVES — spine 16 + chest 14 = 30deg total pitch, head 14
+      // (44deg total head pitch) — instead of hinging the whole torso as
+      // one slab. Same reach (shoulder_N -38, hipsDy 278, wrist lands on
+      // the book), but the spine visibly bends and the head bows as a head.
+      // The torso split has a seam cover (upper extends to y114, lower's
+      // white extension reaches y102), so the 14deg relative bend cannot
+      // open a background wedge at the waist.
+      { t: 0.35, v: { face: 'head', ang: { spine: 16, chest: 14, head: 14, shoulder_N: -38, elbow_N: -5, shoulder_F: 5, elbow_F: -5, backhair: 30 }, hipsDy: 278, backhairDy: 330, backhairDx: 200 }, e: 'in' }, // bend
+      { t: 0.45, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 16, chest: 14, head: 14, shoulder_N: -38, elbow_N: -5, shoulder_F: 5, elbow_F: -5, backhair: 30 }, hipsDy: 278, backhairDy: 330, backhairDx: 200 }, e: 'lin' }, // grasp
       { t: 0.80, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 6, chest: 8, head: -4, shoulder_N: -12, elbow_N: -125, shoulder_F: -10, elbow_F: -115 }, hipsDy: 10, backhairDy: 0, backhairDx: 70 }, e: 'out' },  // rise, stack to chest (same angles as the carry walk — no snap)
-      { t: 1.00, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 0, chest: 6, head: 0, shoulder_N: -12, elbow_N: -125, shoulder_F: -10, elbow_F: -115 }, hipsDy: 0 }, e: 'out' }   // settle
+      { t: 1.00, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 2, chest: 6, head: 0, shoulder_N: -12, elbow_N: -125, shoulder_F: -10, elbow_F: -115 }, hipsDy: 0 }, e: 'out' }   // settle
     ];
     // During the bend the feet stay planted: emulate with a static walk pose
     // (legs at contact, hips lowered by hipsDy via the FK hips offset).
@@ -838,14 +840,20 @@
 
   function upsetPose(done) {
     // ~2.4s: turn -> cross arms -> stomp -> hold + turn-away. Ends in a hold.
+    // Crossed arms (rig v2, 2026-11-27): shoulder ±30 / elbow ∓28, so the
+    // forearms angle DOWN-INWARD ~45deg and the fists tuck at the opposite
+    // waist, INSIDE the torso silhouette. The old ±49/±42 (and my first
+    // ±38/±70) put the forearms nearly horizontal across the chest, so the
+    // fists poked out past the body's sides and the pose read as arms jutting
+    // out instead of arms wrapped around the torso (verified in v2-seq-05).
     mode = 'front'; clearHold();
     var keys = [
       { t: 0.00, v: { face: 'head', ang: {} }, e: 'lin' },
       { t: 0.12, v: { face: 'head_frown', ang: { head: -6, chest: 2 } }, e: 'out' },
-      { t: 0.33, v: { face: 'head_frown', swapArms: true, ang: { head: -14, chest: 4, shoulder_L: -49, elbow_L: -42, shoulder_R: 49, elbow_R: 42 }, rootDx: -10, handL: 'fist', handR: 'fist' }, e: 'out' },
-      { t: 0.50, v: { face: 'head_frown', swapArms: true, ang: { head: -14, chest: 4, shoulder_L: -49, elbow_L: -42, shoulder_R: 49, elbow_R: 42, thigh_R: -14, knee_R: 30 }, rootDx: -10, handL: 'fist', handR: 'fist', scaleY: 0.96, scaleX: 1.03 }, e: 'in' }, // stomp down
-      { t: 0.58, v: { face: 'head_frown', swapArms: true, ang: { head: -14, chest: 4, shoulder_L: -49, elbow_L: -42, shoulder_R: 49, elbow_R: 42 }, rootDx: -10, handL: 'fist', handR: 'fist' }, e: 'out' },
-      { t: 1.00, v: { face: 'head_frown', swapArms: true, ang: { head: -20, chest: 10, shoulder_L: -49, elbow_L: -42, shoulder_R: 49, elbow_R: 42 }, rootDx: -16, handL: 'fist', handR: 'fist' }, e: 'inOut' }
+      { t: 0.33, v: { face: 'head_frown', swapArms: true, ang: { head: -14, chest: 4, shoulder_L: -30, elbow_L: -28, shoulder_R: 30, elbow_R: 28 }, rootDx: -10, handL: 'fist', handR: 'fist' }, e: 'out' },
+      { t: 0.50, v: { face: 'head_frown', swapArms: true, ang: { head: -14, chest: 4, shoulder_L: -30, elbow_L: -28, shoulder_R: 30, elbow_R: 28, thigh_R: -14, knee_R: 30 }, rootDx: -10, handL: 'fist', handR: 'fist', scaleY: 0.96, scaleX: 1.03 }, e: 'in' }, // stomp down
+      { t: 0.58, v: { face: 'head_frown', swapArms: true, ang: { head: -14, chest: 4, shoulder_L: -30, elbow_L: -28, shoulder_R: 30, elbow_R: 28 }, rootDx: -10, handL: 'fist', handR: 'fist' }, e: 'out' },
+      { t: 1.00, v: { face: 'head_frown', swapArms: true, ang: { head: -20, chest: 10, shoulder_L: -30, elbow_L: -28, shoulder_R: 30, elbow_R: 28 }, rootDx: -16, handL: 'fist', handR: 'fist' }, e: 'inOut' }
     ];
     runAnim({ dur: 2.4, sample: function (t01) { return sampleKeys(keys, t01); },
       hold: sampleKeys(keys, 1) }, function () { if (done) done(); });
@@ -902,13 +910,14 @@
   function init(canvasEl) {
     canvas = canvasEl;
     ctx = canvas.getContext('2d');
-    dpr = Math.min(2, window.devicePixelRatio || 1);
+    dpr = Math.min(3, window.devicePixelRatio || 1);
     function fit() {
       var r = canvas.getBoundingClientRect();
       canvas.width = Math.round(r.width * dpr);
       canvas.height = Math.round(r.height * dpr);
     }
     fit();
+    fitCanvas = fit; // game.js fitRoom() calls Rig.refit() after scaling the room
     window.addEventListener('resize', fit);
     Object.keys(VOICE).forEach(function (k) { VOICE[k].forEach(loadVoice); });
     blipAudio = loadVoice('blip.mp3');
@@ -950,7 +959,7 @@
   function getLastRender() { return lastRender; }
 
   window.Rig = {
-    init: init, ready: loadAll,
+    init: init, ready: loadAll, refit: function () { if (fitCanvas) fitCanvas(); },
     setGear: setGear, loadItemImage: loadItemImage, setMuted: setMuted,
     setReducedMotion: setReducedMotion, setDancing: setDancing, setSitting: setSitting,
     setSleepy: setSleepy, setExcited: setExcited, setSleep: setSleep,

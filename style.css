@@ -29,9 +29,18 @@ input { font-family: inherit; }
 .app { width: 100%; max-width: 430px; height: 100dvh; margin: 0 auto; display: flex; flex-direction: column; position: relative; background: var(--wall); overflow: hidden; }
 
 /* ---------- room ---------- */
-.room-wrap { flex: none; height: calc(100dvh - 244px); min-height: 540px; max-height: 600px; position: relative; transform-origin: top center; transition: transform .35s ease; z-index: 1; }
+/* The room is a FIXED 390x600 stage (all props/character coords are in that
+   space) scaled by JS (fitRoom in game.js) to fill the phone. The wrap is
+   flex:1 so it grows on tall screens instead of capping at 600px — the old
+   max-height cap left a 168px dead cream band on the POCO (437x972) and the
+   band stayed cream in sleep mode. The wrap carries the same wall gradient
+   as the room so any slack around the scaled stage is invisible, day and
+   night. The gradient turns to the FLOOR colour at 88%: the room covers the
+   middle of the wrap, so the bottom slack (below the room's floor band) reads
+   as the floor continuing to the dock instead of a cream strip under it. */
+.room-wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; transform-origin: top center; transition: transform .35s ease; z-index: 1; background: linear-gradient(180deg, var(--wall-soft) 0%, var(--wall) 88%, var(--floor) 88%, var(--floor) 100%); }
 body.sheet-open .room-wrap { transform: scale(.70); }
-.room { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, var(--wall-soft) 0%, var(--wall) 100%); transition: background .5s; }
+.room { position: relative; width: 390px; height: 600px; flex: none; overflow: hidden; background: linear-gradient(180deg, var(--wall-soft) 0%, var(--wall) 100%); transition: background .5s; transform-origin: center center; }
 .room .floor-band { position: absolute; left: 0; right: 0; bottom: 0; height: 60px; background: var(--floor); border-top: 1px solid rgba(74,59,71,.18); z-index: 1; }
 .room .rug-img { position: absolute; left: 35px; top: 496px; width: 320px; height: 96px; z-index: 2; }
 #charCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; }
@@ -69,7 +78,7 @@ body.window-open .curtain.r { animation: sway 3s ease-in-out infinite reverse; t
 #p-lamp { left: 350px; top: 360px; width: 36px; height: 180px; z-index: 4; }
 .lamp-glow { position: absolute; left: 250px; top: 330px; width: 140px; height: 220px; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(255,214,120,.55) 0%, rgba(255,214,120,0) 70%); z-index: 2; opacity: 0; transition: opacity .4s; pointer-events: none; }
 body.lamp-on .lamp-glow { opacity: 1; }
-body.lamp-on.sleeping .lamp-glow, body.sleeping .lamp-glow { opacity: .9; }
+body.lamp-on.sleeping .lamp-glow { opacity: .9; }
 #p-plush { left: 318px; top: 482px; width: 56px; height: 56px; z-index: 4; }
 #p-ball { left: 60px; top: 520px; width: 40px; height: 40px; z-index: 4; }
 #p-musicbox { left: 16px; top: 490px; width: 44px; height: 46px; z-index: 4; }
@@ -124,10 +133,13 @@ body.sleeping #sleep-z { display: block; }
 #sleep-z span:nth-child(2) { font-size: 18px; left: 16px; top: 0; animation-delay: .5s; }
 #sleep-z span:nth-child(3) { font-size: 11px; left: 34px; top: 10px; animation-delay: 1s; }
 @keyframes zfloat { 0%,100% { transform: translateY(0); opacity: .7; } 50% { transform: translateY(-8px); opacity: 1; } }
+body.sleeping .room-wrap { background: linear-gradient(180deg, #3A3666 0%, var(--night-wall) 88%, var(--night-floor) 88%, var(--night-floor) 100%); }
 body.sleeping .room { background: linear-gradient(180deg, #3A3666 0%, var(--night-wall) 100%); }
 body.sleeping .room .floor-band { background: var(--night-floor); }
 body.sleeping .pill, body.sleeping .ring, body.sleeping .rail button, body.sleeping #gear-btn { background: rgba(60,54,102,.85); color: var(--night-ink); }
-body.sleeping .dock button { background: rgba(60,54,102,.9); color: var(--night-ink); }
+/* Sleep darkens only the round icon discs — the old rule painted the whole
+   dock button (incl. its label) a dark navy tile. */
+body.sleeping .dock .dock-ic { background: rgba(60,54,102,.9); color: var(--night-ink); }
 body.sleeping .dock { background: #2E2A52; }
 body.sleeping .chat-row { background: #2E2A52; }
 body.sleeping .today-strip { background: #2E2A52; color: var(--night-ink); }
@@ -136,7 +148,9 @@ body.sleeping #p-window { filter: brightness(.42) hue-rotate(205deg) saturate(1.
 body.room-pink { --wall: #F9DCE6; --wall-soft: #FDEEF3; }
 body.room-mint { --wall: #D8EFE2; --wall-soft: #EDF8F1; }
 body.room-lavender { --wall: #E4DDF5; --wall-soft: #F1EDFB; }
-body.night-mode .room { filter: brightness(.72) saturate(.85); }
+/* Night-mode filter lives on the wrap (which contains only the room) so the
+   slack around the scaled stage darkens too instead of staying cream. */
+body.night-mode .room-wrap { filter: brightness(.72) saturate(.85); }
 body.night-mode .dock, body.night-mode .chat-row, body.night-mode .today-strip { filter: brightness(.8); }
 
 /* ---------- dock ---------- */
@@ -169,7 +183,7 @@ body.sleeping .chat-row .quiet-pill, body.sleeping .chat-row .wake-pill { displa
 /* ---------- sheets ---------- */
 .sheet-backdrop { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; background: rgba(74,59,71,.18); z-index: 20; opacity: 0; pointer-events: none; transition: opacity .3s; }
 body.sheet-open .sheet-backdrop { opacity: 1; pointer-events: auto; }
-.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; max-height: 65%; background: var(--card); border-radius: 24px 24px 0 0; box-shadow: 0 -12px 40px rgba(74,59,71,.25); z-index: 21; transform: translateY(105%); transition: transform .35s ease; display: flex; flex-direction: column; overflow: hidden; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 550px; max-height: 65%; background: var(--card); border-radius: 24px 24px 0 0; box-shadow: 0 -12px 40px rgba(74,59,71,.25); z-index: 21; transform: translateY(105%); transition: transform .35s ease; display: flex; flex-direction: column; overflow: hidden; }
 body.sheet-open .sheet { transform: translateY(0); }
 .sheet .handle { flex: none; width: 36px; height: 4px; border-radius: 2px; background: rgba(74,59,71,.25); margin: 10px auto 4px; }
 .sheet header { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 16px 10px; }

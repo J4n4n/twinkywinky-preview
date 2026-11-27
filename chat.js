@@ -135,8 +135,25 @@
         appendMsg('astolfo', 'یاهو! خوش اومدی! امروز چطوری؟ بریم بازی کنیم؟');
       }
     }
+    // Focus the SHEET input on every device (the old pointer:fine check left
+    // mobile users tapping a dead input). Delay past the sheet transition so
+    // the mobile keyboard actually opens.
     var input = document.getElementById('chat-input-sheet');
-    if (input && window.matchMedia('(pointer:fine)').matches) input.focus();
+    if (input) setTimeout(function () { input.focus(); }, 320);
+  }
+
+  // Move the user from the collapsed home-bar input into the sheet input:
+  // the sheet slides OVER the bar, so anything typed in the hidden collapsed
+  // input is stranded and its send button is unreachable under the overlay
+  // (the message was silently lost). Transfer any text already typed and
+  // focus the sheet input so every keystroke lands there.
+  function handOffToSheet() {
+    var collapsed = document.getElementById('chat-input');
+    var sheet = document.getElementById('chat-input-sheet');
+    if (!collapsed || !sheet) return;
+    if (collapsed.value) { sheet.value = collapsed.value; collapsed.value = ''; }
+    collapsed.blur();
+    setTimeout(function () { sheet.focus(); }, 320);
   }
 
   function init() {
@@ -163,14 +180,13 @@
     var input = document.getElementById('chat-input');
     if (input) input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); sendCollapsed(); }
-      else if (!window.Game || !window.Game.state.sleeping) {
-        // Tapping the collapsed input opens the frosted chat sheet.
-        if (!document.body.classList.contains('sheet-open')) openChatSheet();
-      }
+      // No auto-open on other keys: focus already opens the sheet, and
+      // opening here would steal the keystroke that triggered it.
     });
     if (input) input.addEventListener('focus', function () {
       if (window.Game && window.Game.state && window.Game.state.sleeping) return;
       openChatSheet();
+      handOffToSheet();
     });
     var sendBtn2 = document.getElementById('chat-send-sheet');
     if (sendBtn2) sendBtn2.addEventListener('click', sendSheet);

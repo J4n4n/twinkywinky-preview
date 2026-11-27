@@ -436,6 +436,8 @@
     addStat('cleanliness', 22); addStat('happiness', 3);
     addXP(2); save(); render();
     if (window.Rig) window.Rig.bath();
+    dropletsFx(195); // water over her (the bath used to be a pose + line only)
+    setTimeout(function () { dropletsFx(195); }, 800);
     sayBubble(L('bath', {}));
     return true;
   }
@@ -1059,7 +1061,9 @@
               state.shelfLastUpset = Date.now();
               save();
               window.Rig.upsetPose();
-              sayBubble(L('shelfUpset', {}));
+              sayBubble(L('shelfUpset', {}), 8000); // hold the upset line: the
+              // default 4s hid it before Janan could read it (D-14), and the
+              // 45s idle timer could overwrite it even sooner.
               if (window.Rig.playVoice) window.Rig.playVoice('upset');
               logDiary('کتابش رو انداختم پایین — ناراحت شد!');
               addStat('happiness', -3);
@@ -1107,13 +1111,14 @@
       (function (el) { setTimeout(function () { el.remove(); }, 1800); })(h);
     }
   }
-  function dropletsFx() {
+  function dropletsFx(cx) {
     var layer = document.getElementById('droplets');
     if (!layer) return;
+    var c = (typeof cx === 'number') ? cx : 55; // room coords: 55 = plant, 195 = her
     for (var i = 0; i < 8; i++) {
       var d = document.createElement('span');
       d.className = 'd';
-      d.style.left = (46 + i * 3) + 'px';
+      d.style.left = (c - 10 + i * 3) + 'px';
       d.style.top = '300px';
       d.style.animationDelay = (i * 0.07) + 's';
       layer.appendChild(d);
@@ -1253,8 +1258,6 @@
       var cx = window.Rig ? window.Rig.getCharX() : 195;
       var roomH = r.height;
       var scaleY = roomH / 600;
-      var headTop = 172 * scaleY, ground = 552 * scaleY;
-      var halfW = 165 * (r.width / 390);
       // Props UNDER the canvas (z-index 2 < 3) never receive their own click:
       // route taps by region, in room coords (390x600). Checked BEFORE the
       // character bbox — clock/poster/shelf rects overlap its left/right
@@ -1267,14 +1270,18 @@
       if (rx >= 10 && rx <= 78 && ry >= 300 && ry <= 362) { doShelfLine(); return; }
       // Rug first when the tap is on the rug but clear of her feet: the rug
       // zone (y 496-592) otherwise sits inside the character bbox and a rug
-      // tap would always read as a poke.
-      if (y > 496 * scaleY && y < 592 * scaleY && Math.abs(x - cx) > 70) {
+      // tap would always read as a poke. All comparisons in ROOM coords
+      // (rx/ry): cx is a room coordinate (Rig.getCharX) and comparing the raw
+      // screen x against it shifted the hit box ~20px left on the POCO
+      // (437px viewport, room scale 1.10), so taps near her right edge missed
+      // and taps left of her body registered as pets.
+      if (ry > 496 && ry < 592 && Math.abs(rx - cx) > 70) {
         var sitting = !document.body.classList.contains('sitting');
         document.body.classList.toggle('sitting', sitting);
         if (window.Rig) window.Rig.setSitting(sitting);
         sayBubble(L('rugSit', {}));
-      } else if (x > cx - halfW && x < cx + halfW && y > headTop && y < ground) {
-        if (y < 300 * scaleY) pet(); else poke();
+      } else if (rx > cx - 165 && rx < cx + 165 && ry > 172 && ry < 552) {
+        if (ry < 300) pet(); else poke();
       }
     });
   }
@@ -1322,14 +1329,36 @@
     applyDayNight();
   }
 
+  // ---------- room scale-to-fit ----------
+  // The room is a fixed 390x600 stage (every prop/character coordinate is in
+  // that space). Scale it to fill the phone: min(wrapW/390, wrapH/600). The
+  // wrap's flexbox centres it; its gradient hides the slack. Re-fit the rig
+  // canvas afterwards so its backing store matches the scaled rect (rig.js
+  // draws resolution-independently, but the backing must be re-measured
+  // after the transform changes — and rig's own resize listener runs BEFORE
+  // this one, so it would read the stale rect).
+  function fitRoom() {
+    var wrap = document.querySelector('.room-wrap');
+    var room = document.getElementById('room');
+    if (!wrap || !room) return;
+    var w = wrap.clientWidth, h = wrap.clientHeight;
+    if (!w || !h) return;
+    room.style.transform = 'scale(' + Math.min(w / 390, h / 600) + ')';
+    if (window.Rig && window.Rig.refit) window.Rig.refit();
+  }
+
   // ---------- init ----------
   function init() {
     applyOfflineDecay();
+    fitRoom();
+    window.addEventListener('resize', fitRoom);
+    window.addEventListener('orientationchange', function () { setTimeout(fitRoom, 120); });
     document.addEventListener('visibilitychange', function () { if (!document.hidden) { applyOfflineDecay(); render(); } });
     var canvas = document.getElementById('charCanvas');
     var rigReady = window.Rig ? window.Rig.init(canvas) : Promise.resolve();
     loadItems().then(function () { applyGear(); });
     rigReady.then(function () {
+      fitRoom();
       applyGear();
       render();
       updateClock();

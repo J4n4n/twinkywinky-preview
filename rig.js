@@ -10,13 +10,18 @@
 // Celeste 4f run, Shovel Knight 6f, Owlboy 8f/6f; 8-frame classic
 // contact/down/passing/up; Pixeli timing rules; Disney principles adapted
 // for pixels — see verify-mine/PIXEL-ANIMATION-DESIGN.md):
-//  WALK (side, 40px stride, 60px/s, 0.67s/step = a stroll): CONTACT feet
-//    40px apart, arms widest, 4.5% squash -> DOWN hips +13px, front knee
+//  WALK (side, 76px stride, 60px/s, 1.27s/step = a stroll): CONTACT feet
+//    76px apart, arms widest, 4.5% squash -> DOWN hips +13px, front knee
 //    flexes ~20deg (the down-dip is what makes the knee bend REAL — the old
 //    rig's IK was always at max reach so the leg was a straight stick) ->
-//    PASSING support leg straight, free foot lifted 22px, 3% stretch ->
+//    PASSING support leg straight, free foot lifted 34px, 3% stretch ->
 //    UP hips -11px, planted heel lifts (toe-down push-off, not a float).
-//    Arms +-34deg opposite the legs; hair/braid trail ~1/6 cycle behind.
+//    Swing boot is FLAT (12deg) through the pass and toe-down (40deg)
+//    only at push-off/landing, so the boots stay distinguishable at EVERY
+//    moment, not just the four phases. Arms +-34deg opposite the legs
+//    with a gentle 14deg elbow (a 32deg elbow bias cancelled the back
+//    swing and left the near arm hanging like a rod); hair/braid trail
+//    ~1/6 cycle behind.
 //  BEND (2.0s): ANTICIPATION -> 80deg FOLD + 205 squat -> 200ms GRASP HOLD
 //    -> HAIR-BACK -> RISE -> SETTLE. Arm grasp angles UNCHANGED (verified).
 //  CARRY: same gait, 30px stride, 45px/s, clutch arms, 8deg lean-back,
@@ -584,10 +589,17 @@
     var swingToX = q0 + ws.dir * (step * 1.5);
     var e = stepFrac * stepFrac * (3 - 2 * stepFrac); // smoothstep
     var swingX = lerp(swingFromX, swingToX, e);
-    // Foot lift: 22px (was 10) — the passing foot must CLEAR the ground by
-    // a margin visible at phone scale, or the walk reads as dragging.
-    // 12px when carrying: a loaded foot does not lift high.
-    var lift = Math.sin(stepFrac * Math.PI) * (ws.carrying ? 12 : 22);
+    // Foot lift: 34px walk / 22px carry (was 22 / 12 — the v6 lift left the
+    // swing boot tangled with the planted boot through most of the stride:
+    // the boots are 57px long, so while the swing foot passes the planted
+    // foot (stepFrac ~0.3-0.7) the feet are horizontally overlapping and
+    // ONLY vertical clearance separates them. At 22px lift the toe-down
+    // boot (37px vertical extent) still overlapped the planted boot by
+    // ~8px, so the two boots read as one dark mass at any random moment
+    // between the four designed phases. 34px clears it with margin (see
+    // the swing-boot angle profile below). 22px when carrying: a loaded
+    // foot does not lift high, but it must still clear.
+    var lift = Math.sin(stepFrac * Math.PI) * (ws.carrying ? 22 : 34);
     if (reducedMotion) lift *= 0.4;
     // Which leg is planted alternates each step.
     var plantedIsNear = (stepIdx % 2 === 0);
@@ -613,16 +625,23 @@
       var thighBind = Math.atan2(1560 - 1215, 830 - 820) / DEG;
       var shinBind = Math.atan2(1720 - 1560, 830 - 830) / DEG;
       // Boot rotation is ABSOLUTE (the boot bone matrix rotates about the
-      // ankle in composite space, it does not compose with the leg chain):
-      // swing = toes point down (+40deg, was 25). Planted = sole flat at
-      // contact/DOWN, but at UP the hips rise above max leg reach, so the
-      // ankle is clamped ~11px off the rug — without a heel lift that reads
-      // as floating. The planted boot therefore rolls toe-down (Gaussian
-      // bump centred on UP, stepFrac 0.767, peak 28deg): a push-off, not
-      // a hover. At contact (stepFrac 0) the bump is ~0, so the new
-      // planted foot lands flat.
+      // ankle in composite space, it does not compose with the leg chain).
+      // SWING BOOT ANGLE PROFILE (2026-11-27, gap 2 — the v7 dense sweep):
+      // the old constant 40deg toe-down made the swing boot a 37px-tall
+      // diagonal slash (57px * sin40), so even at 22px lift its toe hung
+      // below the planted boot's top while the feet overlapped
+      // horizontally — one dark mass at any random moment. Now the boot is
+      // FLAT through the pass (12deg walk / 8deg carry, vertical extent
+      // 12px / 8px) and only points toe-down at push-off and landing
+      // (40deg at stepFrac 0 / 1, m^2 profile so the transition is smooth).
+      // With 34px lift the toe clears the planted boot by 12-29px through
+      // the whole pass; at landing the feet are 71px apart horizontally,
+      // so the toe-down angle there cannot tangle them.
       var upBump = Math.exp(-Math.pow((stepFrac - 0.767) / 0.18, 2));
-      var bootWorld = f.planted ? upBump * 28 : 40;
+      var passA = ws.carrying ? 8 : 12;
+      var m = Math.abs(stepFrac - 0.5) * 2;
+      var swingBootA = passA + (40 - passA) * m * m;
+      var bootWorld = f.planted ? upBump * 28 : swingBootA;
       legs[side] = {
         thighA: ik.thighA - thighBind, shinA: ik.shinA - shinBind,
         bootA: bootWorld,
@@ -637,10 +656,19 @@
     var swing = ws.carrying ? 0 : 34;
     p.ang.shoulder_N = Math.cos(cyc) * swing;
     p.ang.shoulder_F = -Math.cos(cyc) * swing * 0.7;
-    // Elbow stays visibly bent (32deg +- 10, was 25 +- 5) so the arm never
-    // reads as one straight plank at the back of the swing: the old 12deg was too
-    // subtle at phone scale and the sleeve rendered as a rigid white bar.
-    p.ang.elbow_N = 32 + Math.sin(cyc) * 10;
+    // Elbow stays gently bent (14deg +- 8, was 32 +- 10) so the arm reads
+    // as a swinging arm with a natural kink, never as one straight plank.
+    // THE 32deg BIAS WAS THE STIFF-ARM BUG (2026-11-27, gap 1 — the v7
+    // dense sweep + the owner's phone frame): the forearm's world angle is
+    // shoulder + elbow, so with a 32deg elbow bias the forearm ranged
+    // [-2deg, +66deg] — it never swung BACK. At the back of the swing
+    // (shoulder -34) the forearm sat at ~0deg, i.e. vertical, the upper
+    // arm hid behind the torso, and the near arm read as a straight rod
+    // hanging down while the far arm swung clearly. With a 14deg bias the
+    // forearm ranges [-21deg, +49deg]: a visible back swing AND a visible
+    // forward swing, and the arm never reads as a hanging rod. The far
+    // elbow is untouched — the far arm already reads as a clear swing.
+    p.ang.elbow_N = 14 + Math.sin(cyc) * 8;
     p.ang.elbow_F = 32 - Math.sin(cyc) * 10;
     if (ws.carrying) {
       // Carry: elbows bent, stack clutched to the chest. The old pose

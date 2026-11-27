@@ -1,4 +1,8 @@
-// twinkywinky.org rebuild — skeletal rig (canvas 2D, rigid parts, no skinning).
+// twinkywinky.org rebuild — skeletal MESH rig (canvas 2D, linear-blend skinning).
+// Real bone hierarchy + textured triangle meshes (mesh-data.js): every body
+// region is a grid of vertices weighted to 1-2 bones, rendered per-triangle
+// with affine texture mapping. A bend DEFORMS the torso into a smooth curve
+// (chest/spine/hips weights) instead of rotating rigid parts about pivots.
 // Bone tree + pivots from rebuild/RIG-DATA.md (which supersedes SPECIALIST §2
 // where they differ: braids AFTER arms BEFORE head; IK bind hips 1230).
 // FK default; 2-bone IK ONLY for planted feet (walk / bend). Deterministic
@@ -67,12 +71,12 @@
   var PARTS = [
     'backhair', 'blush', 'head', 'head_closed', 'head_sleep', 'head_frown', 'head_happy',
     'braid_upper_L', 'braid_upper_R', 'braid_lower_L', 'braid_lower_R',
-    'torso_upper', 'torso_lower', 'upperarm_L', 'upperarm_R', 'forearm_L', 'forearm_R',
+    'torso_mesh', 'upperarm_L', 'upperarm_R', 'forearm_L', 'forearm_R',
     'hand_open_L', 'hand_open_R', 'hand_holding_L', 'hand_holding_R', 'hand_fist_L', 'hand_fist_R',
     'thigh_L', 'thigh_R', 'shin_L', 'shin_R', 'boot_L', 'boot_R', 'book', 'sleep_lying'
   ];
   var SIDE_PARTS = [
-    'side_head', 'side_braid', 'side_backhair', 'side_torso_upper', 'side_torso_lower',
+    'side_head', 'side_braid', 'side_backhair', 'side_torso_mesh',
     'side_upperarm', 'side_upperarm_far', 'side_forearm', 'side_forearm_far',
     'side_hand_open', 'side_hand_open_far', 'side_thigh', 'side_thigh_far',
     'side_shin', 'side_shin_far', 'side_boot', 'side_boot_far'
@@ -297,6 +301,132 @@
     return { knee: K, thighA: thighA, shinA: shinA, ankle: A };
   }
 
+  // ---------------- mesh skinning ----------------
+  // Bone matrix: maps bind-pose composite coords to current composite coords.
+  // [a,b,c,d,e,f]: x' = a*x + c*y + e; y' = b*x + d*y + f.
+  // M = T(P) * R(theta) * S(sx,sy) * T(-Q). For FK bones P = the bone's current
+  // world origin, Q = its bind origin (this reproduces drawPart exactly).
+  // For IK leg bones P = Q = the CURRENT pivot (hip/knee/ankle), which
+  // reproduces drawPartAt exactly (rotate about the current pivot).
+  function boneMat(Px, Py, thetaDeg, Qx, Qy, sx, sy) {
+    var th = thetaDeg * DEG;
+    var cos = Math.cos(th), sin = Math.sin(th);
+    sx = sx || 1; sy = sy || 1;
+    var a = cos * sx, b = sin * sx, c = -sin * sy, d = cos * sy;
+    return [a, b, c, d, Px - a * Qx - c * Qy, Py - b * Qx - d * Qy];
+  }
+  // Build one matrix per bone for the current frame. legs (side view, IK) is
+  // pose._legs {near:{hip,knee,ankle,thighA,shinA,bootA}, far:{...}}; when
+  // absent the leg bones fall back to their FK world transforms.
+  function buildBoneMats(bones, world, pose, legs) {
+    var mats = {};
+    var chestSY = pose.chestSY || 1;
+    var braidA = pose.braidA || 0;
+    var order = (bones === BONES_F) ? ORDER_F : ORDER_S;
+    order.forEach(function (name) {
+      var w = world[name];
+      var b = bones[name];
+      var a = w.a;
+      // Braid lag: the lower braid segments get the extra lag angle (the old
+      // code applied it at draw time; here it belongs in the bone matrix).
+      if ((name === 'braidLL' || name === 'braidLR' || name === 'braid') && braidA) a += braidA;
+      // Breathing: the chest bone carries the vertical chest scale, so the
+      // torso mesh breathes; the 1.5% stretch on the sleeve-cap rows that
+      // blend to the chest is negligible and reads as the hoodie breathing.
+      var sy = (name === 'chest') ? chestSY : 1;
+      mats[name] = boneMat(w.x, w.y, a, b.bind[0], b.bind[1], 1, sy);
+    });
+    if (legs) {
+      [['near', 'thigh_N', 'knee_N', 'ankle_N'], ['far', 'thigh_F', 'knee_F', 'ankle_F']].forEach(function (cfg) {
+        var leg = legs[cfg[0]];
+        if (!leg) return;
+        mats[cfg[1]] = boneMat(leg.hip.x, leg.hip.y, leg.thighA, leg.hip.x, leg.hip.y, 1, 1);
+        mats[cfg[2]] = boneMat(leg.knee.x, leg.knee.y, leg.shinA, leg.knee.x, leg.knee.y, 1, 1);
+        mats[cfg[3]] = boneMat(leg.ankle.x, leg.ankle.y, leg.bootA, leg.ankle.x, leg.ankle.y, 1, 1);
+      });
+    }
+    return mats;
+  }
+  // One textured triangle: affine map from texture coords (bind positions) to
+  // skinned composite positions, clipped to the triangle. Texture coords ==
+  // bind-pose composite coords (parts are 1600x1850 full-canvas images).
+  // Two details matter:
+  // - The clip triangle is expanded ~1.5 composite px about its centroid, so
+  //   adjacent triangles overlap by a hairline. Canvas clips are antialiased,
+  //   and without the overlap a hairline of background shows through between
+  //   triangles (visible as triangulation seams on flat areas like the hoodie).
+  //   The texture is continuous across the shared edge, so the overlap samples
+  //   the correct texture; at the silhouette the overlap samples transparency.
+  // - Only the triangle's texture bounding box is drawn (source rect), not
+  //   the whole 1600x1850 image — much less sampling work per triangle.
+  function drawMeshTri(img, t0, t1, t2, x0, y0, x1, y1, x2, y2) {
+    var du1 = t1[0] - t0[0], dv1 = t1[1] - t0[1];
+    var du2 = t2[0] - t0[0], dv2 = t2[1] - t0[1];
+    var det = du1 * dv2 - du2 * dv1;
+    if (det > -0.5 && det < 0.5) return;
+    var dx1 = x1 - x0, dy1 = y1 - y0;
+    var dx2 = x2 - x0, dy2 = y2 - y0;
+    var a = (dx1 * dv2 - dx2 * dv1) / det;
+    var b = (dy1 * dv2 - dy2 * dv1) / det;
+    var c = (du1 * dx2 - du2 * dx1) / det;
+    var d = (du1 * dy2 - du2 * dy1) / det;
+    var e = x0 - a * t0[0] - c * t0[1];
+    var f = y0 - b * t0[0] - d * t0[1];
+    var cx = (x0 + x1 + x2) / 3, cy = (y0 + y1 + y2) / 3;
+    function ex(x, y) {
+      var ddx = x - cx, ddy = y - cy;
+      var L = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+      var k = 1.5 / L;
+      return [x + ddx * k, y + ddy * k];
+    }
+    var p0 = ex(x0, y0), p1 = ex(x1, y1), p2 = ex(x2, y2);
+    var u0 = Math.max(0, Math.floor(Math.min(t0[0], t1[0], t2[0]) - 1));
+    var v0 = Math.max(0, Math.floor(Math.min(t0[1], t1[1], t2[1]) - 1));
+    var u1 = Math.min(1600, Math.ceil(Math.max(t0[0], t1[0], t2[0]) + 1));
+    var v1 = Math.min(1850, Math.ceil(Math.max(t0[1], t1[1], t2[1]) + 1));
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.closePath();
+    ctx.clip();
+    ctx.transform(a, b, c, d, e + a * u0 + c * v0, f + b * u0 + d * v0);
+    ctx.drawImage(img, u0, v0, u1 - u0, v1 - v0, 0, 0, u1 - u0, v1 - v0);
+    ctx.restore();
+  }
+  var _skinned = new Float32Array(512); // reused skinning buffer (x,y per vertex)
+  function drawMesh(name, img, mats) {
+    if (!img) return;
+    var m = window.MESH_DATA && window.MESH_DATA[name];
+    if (!m) return;
+    var verts = m.verts, tris = m.tris;
+    var i, v, M0, x, y, sx, sy, w, M1;
+    for (i = 0; i < verts.length; i++) {
+      v = verts[i];
+      M0 = mats[v[2]];
+      x = v[0]; y = v[1];
+      if (!M0) { _skinned[i * 2] = x; _skinned[i * 2 + 1] = y; continue; }
+      sx = M0[0] * x + M0[2] * y + M0[4];
+      sy = M0[1] * x + M0[3] * y + M0[5];
+      if (v[4]) {
+        w = v[3];
+        M1 = mats[v[4]];
+        if (M1) {
+          sx = sx * w + (M1[0] * x + M1[2] * y + M1[4]) * (1 - w);
+          sy = sy * w + (M1[1] * x + M1[3] * y + M1[5]) * (1 - w);
+        }
+      }
+      _skinned[i * 2] = sx;
+      _skinned[i * 2 + 1] = sy;
+    }
+    for (i = 0; i < tris.length; i++) {
+      var tri = tris[i];
+      var i0 = tri[0], i1 = tri[1], i2 = tri[2];
+      drawMeshTri(img, verts[i0], verts[i1], verts[i2],
+        _skinned[i0 * 2], _skinned[i0 * 2 + 1],
+        _skinned[i1 * 2], _skinned[i1 * 2 + 1],
+        _skinned[i2 * 2], _skinned[i2 * 2 + 1]);
+    }
+  }
+
   // ---------------- idle (front, procedural, deterministic) ----------------
   function idlePose(t) {
     var p = basePose();
@@ -426,9 +556,9 @@
       // Bind angles: thigh bind hip->knee ~88.3deg (side), shin bind knee->ankle ~90deg.
       var thighBind = Math.atan2(1560 - 1215, 830 - 820) / DEG;
       var shinBind = Math.atan2(1720 - 1560, 830 - 830) / DEG;
-      // Boot rotation is ABSOLUTE (drawPartAt rotates the image in composite
-      // space, it does not compose with the leg chain): planted = sole flat
-      // (0deg), swing = toes point down (+25deg).
+      // Boot rotation is ABSOLUTE (the boot bone matrix rotates about the
+      // ankle in composite space, it does not compose with the leg chain):
+      // planted = sole flat (0deg), swing = toes point down (+25deg).
       var bootWorld = f.planted ? 0 : 25;
       legs[side] = {
         thighA: ik.thighA - thighBind, shinA: ik.shinA - shinBind,
@@ -442,8 +572,11 @@
     var swing = ws.carrying ? 0 : 20;
     p.ang.shoulder_N = Math.cos(cyc) * swing;
     p.ang.shoulder_F = -Math.cos(cyc) * swing * 0.7;
-    p.ang.elbow_N = 12 + Math.sin(cyc) * 4;
-    p.ang.elbow_F = 12 - Math.sin(cyc) * 4;
+    // Elbow stays visibly bent (20-30deg) so the arm never reads as one
+    // straight plank at the back of the swing: the old 12deg was too
+    // subtle at phone scale and the sleeve rendered as a rigid white bar.
+    p.ang.elbow_N = 25 + Math.sin(cyc) * 5;
+    p.ang.elbow_F = 25 - Math.sin(cyc) * 5;
     if (ws.carrying) {
       // Carry: elbows bent, stack clutched to the chest. The old pose
       // (shoulder -35 / elbow -78) held the arm nearly straight forward, so
@@ -479,32 +612,17 @@
   }
 
   // ---------------- drawing ----------------
-  function drawPart(im, pivot, world, extra) {
-    if (!im) return;
-    ctx.save();
-    ctx.translate(world.x, world.y);
-    ctx.rotate(Math.round(world.a) * DEG);
-    if (extra && (extra.sx !== 1 || extra.sy !== 1)) ctx.scale(extra.sx || 1, extra.sy || 1);
-    ctx.translate(-pivot[0], -pivot[1]);
-    ctx.drawImage(im, 0, 0, 1600, 1850);
-    ctx.restore();
-  }
-  // Draw a full-canvas part rotated about an explicit pivot point (for IK legs).
-  function drawPartAt(im, px, py, angleDeg, sx, sy) {
-    if (!im) return;
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(Math.round(angleDeg) * DEG);
-    if (sx !== undefined && (sx !== 1 || sy !== 1)) ctx.scale(sx, sy);
-    ctx.translate(-px, -py);
-    ctx.drawImage(im, 0, 0, 1600, 1850);
-    ctx.restore();
-  }
+  // Character drawing is mesh-based now (drawMesh in the skinning section
+  // above). The old rigid drawPart / drawPartAt are gone: no part is ever
+  // rotated as a rigid image any more.
 
   function renderFront(pose) {
     var world = solveFK(BONES_F, ORDER_F, pose);
-    // chest breathing scale about the chest pivot
-    var chestSY = pose.chestSY || 1;
+    // headDy (breathing) is a draw-time offset on the head only — apply it to
+    // the head bone's world position before building matrices (the braids were
+    // already solved from the unshifted head, exactly as before).
+    if (pose.headDy) world.head.y += pose.headDy;
+    var mats = buildBoneMats(BONES_F, world, pose, null);
     var face = pose.face || 'head';
     if (faceOverride && Date.now() < faceOverride.until) face = faceOverride.face;
     else if (faceOverride) faceOverride = null;
@@ -512,44 +630,39 @@
     var arms = pose.swapArms;
     function armSet(first) {
       if (first === 'R') {
-        drawPart(IMG.upperarm_R, BONES_F.shoulder_R.bind, world.shoulder_R);
-        drawPart(IMG.forearm_R, BONES_F.elbow_R.bind, world.elbow_R);
-        drawPart(IMG['hand_' + handR + '_R'], BONES_F.wrist_R.bind, world.wrist_R);
+        drawMesh('upperarm_R', IMG.upperarm_R, mats);
+        drawMesh('forearm_R', IMG.forearm_R, mats);
+        drawMesh('hand_R', IMG['hand_' + handR + '_R'], mats);
       } else {
-        drawPart(IMG.upperarm_L, BONES_F.shoulder_L.bind, world.shoulder_L);
-        drawPart(IMG.forearm_L, BONES_F.elbow_L.bind, world.elbow_L);
-        drawPart(IMG['hand_' + handL + '_L'], BONES_F.wrist_L.bind, world.wrist_L);
+        drawMesh('upperarm_L', IMG.upperarm_L, mats);
+        drawMesh('forearm_L', IMG.forearm_L, mats);
+        drawMesh('hand_L', IMG['hand_' + handL + '_L'], mats);
       }
     }
     // RIG-DATA §4 corrected draw order: backhair -> R leg -> L leg -> torso ->
-    // R arm -> L arm -> braids -> head -> blush -> book.
-    drawPart(IMG.backhair, BONES_F.backhair.bind, world.backhair);
-    drawPart(IMG.thigh_R, BONES_F.thigh_R.bind, world.thigh_R);
-    drawPart(IMG.shin_R, BONES_F.knee_R.bind, world.knee_R);
-    drawPart(IMG.boot_R, BONES_F.ankle_R.bind, world.ankle_R);
-    drawPart(IMG.thigh_L, BONES_F.thigh_L.bind, world.thigh_L);
-    drawPart(IMG.shin_L, BONES_F.knee_L.bind, world.knee_L);
-    drawPart(IMG.boot_L, BONES_F.ankle_L.bind, world.ankle_L);
-    // Two-segment spine (rig v2): the waist+shorts ride the SPINE bone and the
-    // hoodie rides the CHEST bone, so a bend CURVES (spine 10 + chest 8) instead
-    // of hinging the whole torso as one rigid slab around the chest pivot.
-    // The two images are complementary cuts of the old torso.png (20px overlap
-    // at y 1090-1110), so the bind pose is pixel-identical to before.
-    drawPart(IMG.torso_lower, BONES_F.spine.bind, world.spine);
-    drawPart(IMG.torso_upper, BONES_F.chest.bind, world.chest, { sx: 1, sy: chestSY });
-    drawEquipped('outfit');
+    // R arm -> L arm -> braids -> head -> blush -> book. Same order as the old
+    // rigid renderer; only the drawing primitive changed (mesh, not rotated part).
+    drawMesh('backhair', IMG.backhair, mats);
+    drawMesh('thigh_R', IMG.thigh_R, mats);
+    drawMesh('shin_R', IMG.shin_R, mats);
+    drawMesh('boot_R', IMG.boot_R, mats);
+    drawMesh('thigh_L', IMG.thigh_L, mats);
+    drawMesh('shin_L', IMG.shin_L, mats);
+    drawMesh('boot_L', IMG.boot_L, mats);
+    // One torso mesh (torso_mesh.png = the current split art composited):
+    // its rows blend hips<->spine<->chest, so a bend is a smooth curve.
+    drawMesh('torso', IMG.torso_mesh, mats);
+    drawEquipped('outfit', world, mats);
     if (arms) { armSet('L'); armSet('R'); } else { armSet('R'); armSet('L'); }
-    // braids: upper/lower chains, lag angle applied to lower segment
-    var bA = pose.braidA || 0;
-    drawPart(IMG.braid_upper_R, BONES_F.braidUR.bind, world.braidUR);
-    drawPart(IMG.braid_lower_R, BONES_F.braidLR.bind, { x: world.braidLR.x, y: world.braidLR.y, a: world.braidLR.a + bA });
-    drawPart(IMG.braid_upper_L, BONES_F.braidUL.bind, world.braidUL);
-    drawPart(IMG.braid_lower_L, BONES_F.braidLL.bind, { x: world.braidLL.x, y: world.braidLL.y, a: world.braidLL.a + bA });
-    drawEquipped('braid');
-    drawPart(IMG[face] || IMG.head, BONES_F.head.bind, { x: world.head.x, y: world.head.y + (pose.headDy || 0), a: world.head.a });
-    drawPart(IMG.blush, BONES_F.head.bind, { x: world.head.x, y: world.head.y + (pose.headDy || 0), a: world.head.a });
-    drawEquipped('head');
-    drawEquipped('neck');
+    drawMesh('braid_upper_R', IMG.braid_upper_R, mats);
+    drawMesh('braid_lower_R', IMG.braid_lower_R, mats);
+    drawMesh('braid_upper_L', IMG.braid_upper_L, mats);
+    drawMesh('braid_lower_L', IMG.braid_lower_L, mats);
+    drawEquipped('braid', world, mats);
+    drawMesh('head', IMG[face] || IMG.head, mats);
+    drawMesh('blush', IMG.blush, mats);
+    drawEquipped('head', world, mats);
+    drawEquipped('neck', world, mats);
     if (carriedBook) drawCarriedStack(world.wrist_N || world.wrist_L, world.chest.a);
     handWorld = { x: world.wrist_L.x, y: world.wrist_L.y, a: world.wrist_L.a };
     return world;
@@ -557,33 +670,28 @@
 
   function renderSide(pose) {
     var world = solveFK(BONES_S, ORDER_S, pose);
+    if (pose.headDy) world.head.y += pose.headDy;
     var legs = pose._legs;
-    // far leg (IK), far arm, torso, near leg (IK), near arm, braid, head
-    drawPart(IMG.side_backhair, BONES_S.backhair.bind, world.backhair);
-    if (legs) {
-      var f = legs.far;
-      drawPartAt(IMG.side_thigh_far, f.hip.x, f.hip.y, f.thighA);
-      drawPartAt(IMG.side_shin_far, f.knee.x, f.knee.y, f.shinA);
-      drawPartAt(IMG.side_boot_far, f.ankle.x, f.ankle.y, f.bootA);
-    }
-    drawPart(IMG.side_upperarm_far, BONES_S.shoulder_F.bind, world.shoulder_F);
-    drawPart(IMG.side_forearm_far, BONES_S.elbow_F.bind, world.elbow_F);
-    drawPart(IMG.side_hand_open_far, BONES_S.wrist_F.bind, world.wrist_F);
-    // Two-segment spine (rig v2): waist+shorts on the spine bone, hoodie on
-    // the chest bone — the side torso curves in the bend instead of hinging.
-    drawPart(IMG.side_torso_lower, BONES_S.spine.bind, world.spine);
-    drawPart(IMG.side_torso_upper, BONES_S.chest.bind, world.chest, { sx: 1, sy: pose.chestSY || 1 });
-    if (legs) {
-      var n = legs.near;
-      drawPartAt(IMG.side_thigh, n.hip.x, n.hip.y, n.thighA);
-      drawPartAt(IMG.side_shin, n.knee.x, n.knee.y, n.shinA);
-      drawPartAt(IMG.side_boot, n.ankle.x, n.ankle.y, n.bootA);
-    }
-    drawPart(IMG.side_upperarm, BONES_S.shoulder_N.bind, world.shoulder_N);
-    drawPart(IMG.side_forearm, BONES_S.elbow_N.bind, world.elbow_N);
-    drawPart(IMG.side_hand_open, BONES_S.wrist_N.bind, world.wrist_N);
-    drawPart(IMG.side_braid, BONES_S.braid.bind, { x: world.braid.x, y: world.braid.y, a: world.braid.a + (pose.braidA || 0) });
-    drawPart(IMG.side_head, BONES_S.head.bind, { x: world.head.x, y: world.head.y + (pose.headDy || 0), a: world.head.a });
+    var mats = buildBoneMats(BONES_S, world, pose, legs);
+    // far leg (IK), far arm, torso, near leg (IK), near arm, braid, head.
+    // Legs are drawn unconditionally now: without _legs they fall back to
+    // their FK bind pose instead of vanishing.
+    drawMesh('side_backhair', IMG.side_backhair, mats);
+    drawMesh('side_thigh_far', IMG.side_thigh_far, mats);
+    drawMesh('side_shin_far', IMG.side_shin_far, mats);
+    drawMesh('side_boot_far', IMG.side_boot_far, mats);
+    drawMesh('side_upperarm_far', IMG.side_upperarm_far, mats);
+    drawMesh('side_forearm_far', IMG.side_forearm_far, mats);
+    drawMesh('side_hand_far', IMG.side_hand_open_far, mats);
+    drawMesh('side_torso', IMG.side_torso_mesh, mats);
+    drawMesh('side_thigh', IMG.side_thigh, mats);
+    drawMesh('side_shin', IMG.side_shin, mats);
+    drawMesh('side_boot', IMG.side_boot, mats);
+    drawMesh('side_upperarm', IMG.side_upperarm, mats);
+    drawMesh('side_forearm', IMG.side_forearm, mats);
+    drawMesh('side_hand', IMG.side_hand_open, mats);
+    drawMesh('side_braid', IMG.side_braid, mats);
+    drawMesh('side_head', IMG.side_head, mats);
     if (carriedBook) drawCarriedStack(world.wrist_N, world.chest.a);
     handWorld = { x: world.wrist_N.x, y: world.wrist_N.y, a: world.wrist_N.a };
     return world;
@@ -642,13 +750,33 @@
       cape: [{ x: 800, y: 800, s: 560 }]
     }
   };
-  function drawEquipped(slot) {
+  // Equipped shop items ride their bone: the item's bind-pose centre is
+  // transformed by the bone matrix and the item rotates with the bone, so a
+  // starclip stays on the hair and an apron stays on the torso through a bend.
+  // (The old code drew them at fixed composite positions, so they floated off
+  // the body whenever it moved.) Braid items: first position = left braid,
+  // second = right braid.
+  function drawEquipped(slot, world, mats) {
     var id = gear[slot];
     if (!id || !EQUIP_DRAW[slot] || !EQUIP_DRAW[slot][id]) return;
     var im = ITEM_IMG[id];
     if (!im) return;
-    EQUIP_DRAW[slot][id].forEach(function (d) {
-      ctx.drawImage(im, d.x - d.s / 2, d.y - d.s / 2, d.s, d.s);
+    EQUIP_DRAW[slot][id].forEach(function (d, idx) {
+      var bone = slot === 'head' ? 'head' : slot === 'neck' ? 'neck' :
+                 slot === 'outfit' ? 'chest' :
+                 slot === 'braid' ? (idx === 0 ? 'braidUL' : 'braidUR') : null;
+      if (!bone || !mats || !mats[bone] || !world || !world[bone]) {
+        ctx.drawImage(im, d.x - d.s / 2, d.y - d.s / 2, d.s, d.s);
+        return;
+      }
+      var M = mats[bone];
+      var cx = M[0] * d.x + M[2] * d.y + M[4];
+      var cy = M[1] * d.x + M[3] * d.y + M[5];
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.round(world[bone].a) * DEG);
+      ctx.drawImage(im, -d.s / 2, -d.s / 2, d.s, d.s);
+      ctx.restore();
     });
   }
   function loadItemImage(id, file) {
@@ -788,18 +916,27 @@
     var keys = [
       { t: 0.00, v: { face: 'head', ang: {} }, e: 'lin' },
       { t: 0.10, v: { face: 'head', ang: { head: -8, chest: 4 }, hipsDy: 12 }, e: 'out' },       // anticipation
-      // Deep squat pick-up, REVISED x4 (rig v6, 2026-11-27): the torso is now
-      // TWO segments (waist on the spine bone, hoodie on the chest bone), so
-      // the bend CURVES — spine 16 + chest 14 = 30deg total pitch, head 14
-      // (44deg total head pitch) — instead of hinging the whole torso as
-      // one slab. Same reach (shoulder_N -38, hipsDy 278, wrist lands on
-      // the book), but the spine visibly bends and the head bows as a head.
-      // The torso split has a seam cover (upper extends to y114, lower's
-      // white extension reaches y102), so the 14deg relative bend cannot
-      // open a background wedge at the waist.
-      { t: 0.35, v: { face: 'head', ang: { spine: 16, chest: 14, head: 14, shoulder_N: -38, elbow_N: -5, shoulder_F: 5, elbow_F: -5, backhair: 30 }, hipsDy: 278, backhairDy: 330, backhairDx: 200 }, e: 'in' }, // bend
-      { t: 0.45, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 16, chest: 14, head: 14, shoulder_N: -38, elbow_N: -5, shoulder_F: 5, elbow_F: -5, backhair: 30 }, hipsDy: 278, backhairDy: 330, backhairDx: 200 }, e: 'lin' }, // grasp
-      { t: 0.80, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 6, chest: 8, head: -4, shoulder_N: -12, elbow_N: -125, shoulder_F: -10, elbow_F: -115 }, hipsDy: 10, backhairDy: 0, backhairDx: 70 }, e: 'out' },  // rise, stack to chest (same angles as the carry walk — no snap)
+      // Deep bend, RE-AUTHORED for the mesh rig (2026-11-27): the mesh
+      // removes the 30deg ceiling the rigid split imposed (no seam to
+      // open), so the torso now folds 70deg — spine 35 + chest 35 — and
+      // the mesh distributes it as a smooth arc (rows blend hips->spine
+      // ->chest), while the squat drops to hipsDy 180 (the legs no longer
+      // fold the knee below the ankle). The arm is re-solved by 2-bone IK
+      // for this torso: shoulder_N -47, elbow_N -47 puts the wrist on
+      // the book (screen 97,529 — verified by FK, same grasp point as
+      // the old keys). Head 18 (88deg total) looks down at the book.
+      // Far arm counter-rotates to hang down (shoulder_F -60) instead
+      // of sticking out with the pitched chest. Backhair 55 with a
+      // large Dy/Dx drapes the hair down from the bowed head.
+      { t: 0.35, v: { face: 'head', ang: { spine: 35, chest: 35, head: -10, shoulder_N: -47, elbow_N: -47, shoulder_F: -60, elbow_F: -10, backhair: 0 }, hipsDy: 180, backhairDy: 650, backhairDx: 650 }, e: 'in' }, // bend
+      { t: 0.45, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 35, chest: 35, head: -10, shoulder_N: -47, elbow_N: -47, shoulder_F: -60, elbow_F: -10, backhair: 0 }, hipsDy: 180, backhairDy: 650, backhairDx: 650 }, e: 'lin' }, // grasp
+      // RIG: hair snap-back — the drape offset (650,650) is in world coords, so
+      // if it lingers while the head returns upright it reads as a horizontal
+      // pink slab sticking out in front of the face (mesh-bend-b.png). The hair
+      // must swing back onto the head right after the grasp, while the head is
+      // still bowed (so the return is masked by the pitch), not trail behind it.
+      { t: 0.55, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 30, chest: 30, head: -9, shoulder_N: -40, elbow_N: -60, shoulder_F: -50, elbow_F: -30, backhair: 0 }, hipsDy: 150, backhairDy: 120, backhairDx: 120 }, e: 'out' }, // hair back
+      { t: 0.80, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 6, chest: 8, head: -4, shoulder_N: -12, elbow_N: -125, shoulder_F: -10, elbow_F: -115 }, hipsDy: 10, backhairDy: 0, backhairDx: 0 }, e: 'out' },  // rise, stack to chest (same angles as the carry walk — no snap)
       { t: 1.00, v: { face: 'head', handL: 'holding', handR: 'holding', ang: { spine: 2, chest: 6, head: 0, shoulder_N: -12, elbow_N: -125, shoulder_F: -10, elbow_F: -115 }, hipsDy: 0 }, e: 'out' }   // settle
     ];
     // During the bend the feet stay planted: emulate with a static walk pose
